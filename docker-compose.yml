@@ -1,0 +1,37 @@
+# Tiện ích Docker cho pipeline dữ liệu + PostGIS (tùy chọn).
+# Không bắt buộc chạy để dev app; chỉ dùng khi xử lý dữ liệu .gdb / postgres.
+#
+#   docker compose run --rm gdal ogrinfo /data/raw/xxx.gdb
+#   docker compose run --rm tippecanoe --version
+#   docker compose up -d postgis
+services:
+  # GDAL: đọc .gdb, reproject, xuất GeoJSON. Mount toàn repo vào /work.
+  gdal:
+    image: ghcr.io/osgeo/gdal:alpine-small-latest
+    working_dir: /work
+    volumes:
+      - ./:/work
+    entrypoint: [""]
+
+  # tippecanoe: GeoJSON -> .pmtiles / .mbtiles
+  tippecanoe:
+    image: klokantech/tippecanoe:latest
+    working_dir: /work
+    volumes:
+      - ./:/work
+    entrypoint: [""]
+
+  # PostGIS (tùy chọn) nếu sau này bạn dùng postgres thay .gdb
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: gis
+      POSTGRES_PASSWORD: gis
+      POSTGRES_DB: gis
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

@@ -1,0 +1,69 @@
+{
+  "version": 8,
+  "name": "PrintMap Demo (GeoJSON)",
+  "metadata": { "note": "Style demo dùng nguồn GeoJSON phục vụ bởi API; không cần pmtiles/tippecanoe." },
+  "glyphs": "__API__/glyphs/{fontstack}/{range}.pbf",
+  "sources": {
+    "diagioi": { "type": "geojson", "data": "__API__/data/sample/diagioi.geojson" },
+    "thuyhe": { "type": "geojson", "data": "__API__/data/sample/thuyhe.geojson" },
+    "giaothong": { "type": "geojson", "data": "__API__/data/sample/giaothong.geojson" },
+    "duongsat": { "type": "geojson", "data": "__API__/data/sample/duongsat.geojson" },
+    "mols": { "type": "geojson", "data": "__API__/data/sample/mols.geojson" },
+    "diemdc": { "type": "geojson", "data": "__API__/data/sample/diemdc.geojson" }
+  },
+  "layers": [
+    { "id": "bg", "type": "background", "paint": { "background-color": "#f7f6f2" } },
+
+    { "id": "diagioi-fill", "type": "fill", "source": "diagioi", "filter": ["==", ["get", "cap"], "xa"],
+      "paint": { "fill-color": "#ffffff", "fill-opacity": 0.15, "fill-outline-color": "#ff00ff" } },
+    { "id": "thuyhe-fill", "type": "fill", "source": "thuyhe",
+      "paint": { "fill-color": "#c2ffff", "fill-outline-color": "#00cccc" } },
+
+    { "id": "diagioi-xa", "type": "line", "source": "diagioi", "filter": ["==", ["get", "cap"], "xa"],
+      "paint": { "line-color": "#ff00ff", "line-width": 1.5, "line-dasharray": [3, 2] } },
+    { "id": "diagioi-huyen", "type": "line", "source": "diagioi", "filter": ["==", ["get", "cap"], "huyen"],
+      "paint": { "line-color": "#000000", "line-width": 3, "line-dasharray": [4, 2] } },
+
+    { "id": "duongsat-base", "type": "line", "source": "duongsat",
+      "paint": { "line-color": "#000000", "line-width": 2 } },
+    { "id": "duongsat-ties", "type": "line", "source": "duongsat",
+      "paint": { "line-color": "#ffffff", "line-width": 2, "line-dasharray": [1, 2] } },
+
+    { "id": "giaothong-casing", "type": "line", "source": "giaothong",
+      "layout": { "line-cap": "round", "line-join": "round" },
+      "paint": { "line-color": "#7a3a00", "line-width": 6 } },
+    { "id": "giaothong-line", "type": "line", "source": "giaothong",
+      "layout": { "line-cap": "round", "line-join": "round" },
+      "paint": { "line-color": "#d35400", "line-width": 3.5 } },
+
+    { "id": "mols-pts", "type": "circle", "source": "mols",
+      "paint": {
+        "circle-radius": 6,
+        "circle-stroke-width": 1.5,
+        "circle-stroke-color": "#000000",
+        "circle-color": [
+          "match", ["get", "trangthai"],
+          "moi", "#ff0000",
+          "giadinh", "#00b050",
+          "nghiatrang", "#ff0000",
+          "xong", "#ffffff",
+          "tieptuc", "#ffff99",
+          "chua", "#ccff99",
+          "chuaketqua", "#ffb3b3",
+          "khongro", "#c6d9f1",
+          "#888888"
+        ]
+      }
+    },
+
+    { "id": "diemdc-pts", "type": "circle", "source": "diemdc",
+      "paint": { "circle-radius": 5, "circle-color": "#000000", "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5 } },
+
+    { "id": "diagioi-label", "type": "symbol", "source": "diagioi", "filter": ["==", ["get", "cap"], "xa"],
+      "layout": { "text-field": ["get", "name"], "text-font": ["Noto Sans Bold"], "text-size": 13 },
+      "paint": { "text-color": "#333", "text-halo-color": "#fff", "text-halo-width": 1.5 } },
+    { "id": "diemdc-label", "type": "symbol", "source": "diemdc",
+      "layout": { "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"], "text-size": 12, "text-offset": [0, 1.2], "text-anchor": "top" },
+      "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 1.5 } }
+  ]
+}
