@@ -98,7 +98,33 @@ const diemdc = fc([
   feat({ type: 'Point', coordinates: [E - 0.15, S + 0.14] }, { name: 'BCH Quân sự huyện', loai: 'qs_huyen' })
 ]);
 
-const layers = { diagioi, thuyhe, giaothong, duongsat, mols, diemdc };
+// --- Địa phận hành chính cấp xã (polygon) kèm số liệu quy tập ---
+// Đây là lớp nguồn cho: chọn tỉnh/xã, bảng số liệu tự động, mặt nạ che nền raster.
+const XA_STATS = [
+  { maxa: '19759', tenxa: 'Phong Điền', st: [218, 180, 38, 25, 12, 7] },
+  { maxa: '19762', tenxa: 'Điền Hương', st: [50, 44, 6, 9, 3, 1] },
+  { maxa: '19765', tenxa: 'Điền Môn', st: [29, 25, 4, 5, 2, 0] },
+  { maxa: '19768', tenxa: 'Phong Bình', st: [152, 138, 14, 18, 6, 4] }
+];
+const dphcFeatures = communePolys.map((f, i) => {
+  const meta = XA_STATS[i % XA_STATS.length];
+  const [cc, dq, cq, gd, nk, bg] = meta.st;
+  return feat(f.geometry, {
+    maxa: meta.maxa,
+    tenxa: meta.tenxa,
+    matinh: '46',
+    tentinh: 'Thừa Thiên Huế',
+    ls_chon_cat_ban_dau: cc,
+    ls_da_quy_tap: dq,
+    ls_chua_quy_tap: cq,
+    ls_gia_dinh_quan_ly: gd,
+    mo_tu_noi_khac: nk,
+    mo_ban_giao: bg
+  });
+});
+const diaphanhanhchinhcapxa = fc(dphcFeatures);
+
+const layers = { diagioi, thuyhe, giaothong, duongsat, mols, diemdc, diaphanhanhchinhcapxa };
 
 for (const [name, collection] of Object.entries(layers)) {
   writeFileSync(`${SAMPLE_DIR}/${name}.geojson`, JSON.stringify(collection));

@@ -4,24 +4,41 @@ import { existsSync, readFileSync } from 'node:fs';
 import { config, repoPath } from './config.ts';
 import { serveFileWithRange } from './lib/static.ts';
 import { renderPrint } from './print/render.ts';
+import { adminRoutes } from './admin/index.ts';
+import { mbtilesRoutes } from './mbtiles.ts';
 import type { PrintRequest } from '@printmap/shared';
 
-/** Đọc style JSON và thay placeholder __API__ bằng URL công khai của API. */
+/** Đọc style JSON, thay __API__ -> URL API và __MARTIN__ -> URL Martin. */
 function readStyle(name: string): unknown | null {
   const safe = name.replace(/[^a-zA-Z0-9._-]/g, '');
   const file = repoPath('styles', safe.endsWith('.json') ? safe : `${safe}.json`);
   if (!existsSync(file)) return null;
-  const raw = readFileSync(file, 'utf8').replaceAll('__API__', config.publicApiUrl);
+  const raw = readFileSync(file, 'utf8')
+    .replaceAll('__API__', config.publicApiUrl)
+    .replaceAll('__MARTIN__', config.martinUrl);
   return JSON.parse(raw);
 }
 
 const app = new Elysia()
   .use(cors())
+  .use(adminRoutes)
+  .use(mbtilesRoutes)
 
   .get('/', () => ({
     name: 'printmap-api',
     ok: true,
-    endpoints: ['/styles/:name', '/tiles/:file', '/glyphs/:fontstack/:range', '/sprite/:file', '/data/sample/:file', 'POST /api/print']
+    endpoints: [
+      '/styles/:name',
+      '/tiles/:file',
+      '/mbtiles/:name/:z/:x/:y',
+      '/glyphs/:fontstack/:range',
+      '/sprite/:file',
+      '/data/sample/:file',
+      '/api/admin/provinces',
+      '/api/admin/communes?matinh=',
+      '/api/admin/commune/:maxa',
+      'POST /api/print'
+    ]
   }))
 
   // --- MapLibre style (chèn __API__) ---

@@ -2,20 +2,36 @@
   import { onMount } from 'svelte';
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
-  import { STYLE_URL } from '$lib/config';
+  import { STYLE_URL, API_URL } from '$lib/config';
   import { ensurePmtilesProtocol } from '$lib/pmtiles';
-  import { defaultLayout, type LayoutConfig } from '@printmap/shared';
+  import {
+    defaultLayout,
+    STANDARD_SCALES,
+    type LayoutConfig,
+    type PaperName,
+    type Orientation
+  } from '@printmap/shared';
   import PrintLayout from '$lib/print/PrintLayout.svelte';
-  import { exportClientPdf, exportServerPdf } from '$lib/print/export';
+  import { exportClient, exportServer } from '$lib/print/export';
 
-  // Trạng thái bản vẽ (deep clone để không đụng default).
   let layout = $state<LayoutConfig>(structuredClone(defaultLayout));
 
   let mainMapEl: HTMLDivElement;
   let showModal = $state(false);
-  let scaleInput = $state(layout.scaleRatio);
   let busy = $state<'' | 'client' | 'server'>('');
   let errorMsg = $state('');
+
+  // --- Tỷ lệ ---
+  let scaleSel = $state<string>('100000'); // giá trị select: số | 'zoom' | 'custom'
+  let scaleCustom = $state(25000);
+
+  // --- Tỉnh / Xã ---
+  interface Province { matinh: string; tentinh: string }
+  interface Commune { maxa: string; tenxa: string }
+  let provinces = $state<Province[]>([]);
+  let communes = $state<Commune[]>([]);
+  let provinceSel = $state('');
+  let communeSel = $state('');
 
   let printLayout = $state<ReturnType<typeof PrintLayout> | null>(null);
 
@@ -28,41 +44,77 @@
       zoom: layout.zoom
     });
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    // Đồng bộ camera từ bản đồ web sang bản vẽ in khi mở modal.
     map.on('moveend', () => {
       const c = map.getCenter();
       layout.center = [c.lng, c.lat];
       layout.zoom = map.getZoom();
     });
+
+    loadProvinces();
     return () => map.remove();
   });
 
-  function openModal() {
-    scaleInput = layout.scaleRatio;
-    showModal = true;
-  }
-
-  function applyScale() {
-    if (scaleInput > 0) printLayout?.applyScale(scaleInput);
-  }
-
-  async function onExportClient() {
-    errorMsg = '';
-    busy = 'client';
+  async function loadProvinces() {
     try {
-      await exportClientPdf(2);
-    } catch (e) {
-      errorMsg = String(e);
-    } finally {
-      busy = '';
+      provinces = await (await fetch(`${API_URL}/api/admin/provinces`)).json();
+      if (provinces.length === 1) {
+        provinceSel = provinces[0].matinh;
+        await loadCommunes();
+      }
+    } catch {
+      /* API chưa chạy — bỏ qua */
     }
   }
 
-  async function onExportServer() {
-    errorMsg = '';
-    busy = 'server';
+  async function loadCommunes() {
+    communes = [];
+    communeSel = '';
+    if (!provinceSel) return;
     try {
-      await exportServerPdf(layout, { deviceScaleFactor: 3 });
+      communes = await (await fetch(`${API_URL}/api/admin/communes?matinh=${provinceSel}`)).json();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Chọn xã: zoom tới xã, đổi tiêu đề, nạp số liệu bảng, che nền ngoài xã. */
+  async function onCommuneChange() {
+    if (!communeSel) {
+      layout.commune = null;
+      return;
+    }
+    try {
+      const d = await (await fetch(`${API_URL}/api/admin/commune/${communeSel}`)).json();
+      layout.commune = {
+        maxa: d.maxa,
+        tenxa: d.tenxa,
+        matinh: d.matinh,
+        tentinh: d.tentinh,
+        bbox: d.bbox
+      };
+      layout.stats = { ...d.stats };
+      const prefix = /^(xã|phường|thị trấn)/i.test(d.tenxa) ? '' : 'XÃ ';
+      layout.title = `BẢN ĐỒ TÌM KIẾM, QUY TẬP HÀI CỐT LIỆT SĨ ${prefix}${d.tenxa.toUpperCase()} - TỈNH ${d.tentinh.toUpperCase()}`;
+    } catch (e) {
+      errorMsg = `Không nạp được xã: ${e}`;
+    }
+  }
+
+  function onScaleChange() {
+    if (scaleSel === 'zoom') {
+      layout.scaleMode = 'zoom';
+      return;
+    }
+    const ratio = scaleSel === 'custom' ? scaleCustom : Number(scaleSel);
+    if (ratio > 0) printLayout?.applyScale(ratio);
+  }
+
+  async function doExport(mode: 'client' | 'server') {
+    errorMsg = '';
+    busy = mode;
+    try {
+      if (mode === 'client') await exportClient(layout);
+      else await exportServer(layout, { deviceScaleFactor: 3 });
     } catch (e) {
       errorMsg = String(e);
     } finally {
@@ -72,8 +124,8 @@
 </script>
 
 <div id="top-bar">
-  <strong>HỆ THỐNG PHÂN TÍCH QUY TẬP CHUYÊN NGÀNH — BẢN VẼ 840×680MM</strong>
-  <button onclick={openModal}>Thiết Kế Bản Vẽ Khổ Lớn (840×680mm)</button>
+  <strong>HỆ THỐNG PHÂN TÍCH QUY TẬP CHUYÊN NGÀNH</strong>
+  <button onclick={() => (showModal = true)}>Thiết Kế Bản Vẽ In</button>
 </div>
 
 <div id="main-map" bind:this={mainMapEl}></div>
@@ -83,14 +135,63 @@
     <div id="modal-body">
       <div class="toolbar">
         <label>
-          <strong>Tỷ lệ bản đồ (1 : )</strong>
-          <input type="number" bind:value={scaleInput} step="5000" min="1000" />
+          Bố cục
+          <select bind:value={layout.paper}>
+            {#each ['A4', 'A3', 'A2', 'A1'] as p}<option value={p as PaperName}>{p}</option>{/each}
+          </select>
         </label>
-        <button class="ok" onclick={applyScale}>Áp dụng</button>
-        <span class="hint">Hệ thống tự động zoom bản đồ chuẩn xác</span>
+        <label>
+          Hướng
+          <select bind:value={layout.orientation}>
+            <option value={'landscape' as Orientation}>Ngang</option>
+            <option value={'portrait' as Orientation}>Dọc</option>
+          </select>
+        </label>
+        <label>
+          Định dạng
+          <select bind:value={layout.format}>
+            <option value="pdf">PDF</option>
+            <option value="png">PNG</option>
+          </select>
+        </label>
+        <label>
+          Tỷ lệ
+          <select bind:value={scaleSel} onchange={onScaleChange}>
+            {#each STANDARD_SCALES as sc}
+              <option value={String(sc)}>1 : {sc.toLocaleString('vi-VN')}</option>
+            {/each}
+            <option value="zoom">Theo mức zoom</option>
+            <option value="custom">Nhập tay…</option>
+          </select>
+        </label>
+        {#if scaleSel === 'custom'}
+          <label>
+            1 :
+            <input type="number" bind:value={scaleCustom} min="500" step="500" onchange={onScaleChange} />
+          </label>
+        {/if}
+        <label>
+          Tỉnh
+          <select bind:value={provinceSel} onchange={loadCommunes}>
+            <option value="">— chọn tỉnh —</option>
+            {#each provinces as p}<option value={p.matinh}>{p.tentinh}</option>{/each}
+          </select>
+        </label>
+        <label>
+          Xã
+          <select bind:value={communeSel} onchange={onCommuneChange}>
+            <option value="">— toàn vùng —</option>
+            {#each communes as c}<option value={c.maxa}>{c.tenxa}</option>{/each}
+          </select>
+        </label>
+        <label class="chk">
+          <input type="checkbox" bind:checked={layout.showGrid} /> Lưới ô vuông
+        </label>
       </div>
 
-      <PrintLayout bind:this={printLayout} {layout} editable={true} />
+      {#key `${layout.paper}-${layout.orientation}`}
+        <PrintLayout bind:this={printLayout} {layout} editable={true} />
+      {/key}
 
       {#if errorMsg}
         <div class="err">{errorMsg}</div>
@@ -98,11 +199,11 @@
 
       <div class="actions">
         <button class="grey" onclick={() => (showModal = false)}>Quay lại Web</button>
-        <button class="ok" onclick={onExportClient} disabled={busy !== ''}>
-          {busy === 'client' ? 'Đang tạo...' : 'Xuất PDF nhanh (client)'}
+        <button class="ok" onclick={() => doExport('client')} disabled={busy !== ''}>
+          {busy === 'client' ? 'Đang tạo...' : `Xuất ${layout.format.toUpperCase()} nhanh (client)`}
         </button>
-        <button class="ok" onclick={onExportServer} disabled={busy !== ''}>
-          {busy === 'server' ? 'Đang render DPI cao...' : 'Xuất PDF chất lượng cao (server)'}
+        <button class="ok" onclick={() => doExport('server')} disabled={busy !== ''}>
+          {busy === 'server' ? 'Đang render DPI cao...' : `Xuất ${layout.format.toUpperCase()} chất lượng cao (server)`}
         </button>
       </div>
     </div>
@@ -154,12 +255,15 @@
     opacity: 0.6;
     cursor: default;
   }
-  input {
-    padding: 8px;
+  input,
+  select {
+    padding: 6px 8px;
     border: 1px solid #ccc;
     border-radius: 4px;
-    width: 140px;
-    font-size: 11pt;
+    font-size: 10pt;
+  }
+  input[type='number'] {
+    width: 110px;
   }
   #print-modal {
     position: fixed;
@@ -182,7 +286,8 @@
   }
   .toolbar {
     display: flex;
-    gap: 15px;
+    flex-wrap: wrap;
+    gap: 12px 16px;
     align-items: center;
     background: #f8f9fa;
     padding: 12px;
@@ -190,10 +295,16 @@
     width: 100%;
     box-sizing: border-box;
     border: 1px solid #ddd;
-  }
-  .toolbar .hint {
     font-size: 10pt;
-    color: #555;
+    font-weight: bold;
+  }
+  .toolbar label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .toolbar .chk {
+    font-weight: normal;
   }
   .actions {
     display: flex;

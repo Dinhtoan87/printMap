@@ -1,6 +1,6 @@
 import { chromium, type Browser } from 'playwright';
 import type { PrintRequest } from '@printmap/shared';
-import { PAGE_WIDTH_MM, PAGE_HEIGHT_MM } from '@printmap/shared';
+import { pageSpec } from '@printmap/shared';
 import { config } from '../config.ts';
 
 let browserPromise: Promise<Browser> | null = null;
@@ -28,8 +28,9 @@ export interface RenderResult {
  * - page.pdf giữ chữ/vector nét ở đúng khổ 840x680mm.
  */
 export async function renderPrint(req: PrintRequest): Promise<RenderResult> {
-  const format = req.format ?? 'pdf';
+  const format = req.format ?? req.layout.format ?? 'pdf';
   const scaleFactor = Math.min(Math.max(req.deviceScaleFactor ?? 3, 1), 4);
+  const spec = pageSpec(req.layout.paper ?? 'A1', req.layout.orientation ?? 'landscape');
 
   const cfg = Buffer.from(JSON.stringify(req.layout), 'utf8').toString('base64url');
   const url = `${config.webUrl}/print?cfg=${cfg}`;
@@ -43,20 +44,21 @@ export async function renderPrint(req: PrintRequest): Promise<RenderResult> {
     // Trang /print đặt cờ khi bản đồ đã render xong (map 'idle').
     await page.waitForFunction('window.__PRINT_READY__ === true', { timeout: 60_000 });
 
+    const base = `bando_${req.layout.paper ?? 'A1'}_${spec.wMm}x${spec.hMm}`;
     if (format === 'png') {
       const el = page.locator('#a0-print-zone');
       const buffer = await el.screenshot({ type: 'png' });
-      return { buffer, contentType: 'image/png', filename: 'bando_840x680.png' };
+      return { buffer, contentType: 'image/png', filename: `${base}.png` };
     }
 
     const pdf = await page.pdf({
-      width: `${PAGE_WIDTH_MM}mm`,
-      height: `${PAGE_HEIGHT_MM}mm`,
+      width: `${spec.wMm}mm`,
+      height: `${spec.hMm}mm`,
       printBackground: true,
       pageRanges: '1',
       margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' }
     });
-    return { buffer: pdf, contentType: 'application/pdf', filename: 'bando_840x680.pdf' };
+    return { buffer: pdf, contentType: 'application/pdf', filename: `${base}.pdf` };
   } finally {
     await context.close();
   }

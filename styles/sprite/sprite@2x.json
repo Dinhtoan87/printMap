@@ -1,0 +1,72 @@
+{
+ "dcs-dothi": {
+  "x": 0,
+  "y": 0,
+  "width": 32,
+  "height": 32,
+  "pixelRatio": 2
+ },
+ "dcs-nongthon": {
+  "x": 36,
+  "y": 0,
+  "width": 32,
+  "height": 32,
+  "pixelRatio": 2
+ },
+ "grave-black": {
+  "x": 72,
+  "y": 0,
+  "width": 56,
+  "height": 48,
+  "pixelRatio": 2
+ },
+ "grave-green": {
+  "x": 132,
+  "y": 0,
+  "width": 56,
+  "height": 48,
+  "pixelRatio": 2
+ },
+ "grave-red": {
+  "x": 192,
+  "y": 0,
+  "width": 56,
+  "height": 48,
+  "pixelRatio": 2
+ },
+ "ntls": {
+  "x": 252,
+  "y": 0,
+  "width": 40,
+  "height": 56,
+  "pixelRatio": 2
+ },
+ "qs-huyen": {
+  "x": 296,
+  "y": 0,
+  "width": 48,
+  "height": 48,
+  "pixelRatio": 2
+ },
+ "qs-tinh": {
+  "x": 348,
+  "y": 0,
+  "width": 52,
+  "height": 52,
+  "pixelRatio": 2
+ },
+ "ubnd-huyen": {
+  "x": 404,
+  "y": 0,
+  "width": 48,
+  "height": 48,
+  "pixelRatio": 2
+ },
+ "ubnd-xa": {
+  "x": 456,
+  "y": 0,
+  "width": 44,
+  "height": 44,
+  "pixelRatio": 2
+ }
+}

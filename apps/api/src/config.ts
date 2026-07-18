@@ -11,6 +11,10 @@ export const config = {
   publicApiUrl: process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
   webUrl: process.env.WEB_URL ?? 'http://localhost:5173',
   chromiumPath: process.env.PLAYWRIGHT_CHROMIUM ?? '/opt/pw-browsers/chromium',
+  /** URL công khai của Martin tile server (thay __MARTIN__ trong style). */
+  martinUrl: process.env.MARTIN_URL ?? 'http://localhost:3001',
+  /** PostGIS chứa các lớp chuyên đề (diaphanhanhchinhcapxa, mols, ...). Bỏ trống -> dùng dữ liệu mẫu. */
+  databaseUrl: process.env.DATABASE_URL ?? '',
   repoRoot: REPO_ROOT
 };
 

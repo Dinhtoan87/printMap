@@ -13,9 +13,11 @@
     "interactjs": "^1.10.27",
     "jspdf": "^2.5.2",
     "maplibre-gl": "^4.7.1",
-    "pmtiles": "^3.2.1"
+    "pmtiles": "^3.2.1",
+    "proj4": "^2.14.0"
   },
   "devDependencies": {
+    "@types/proj4": "^2.5.5",
     "@sveltejs/adapter-node": "^5.2.9",
     "@sveltejs/kit": "^2.8.1",
     "@sveltejs/vite-plugin-svelte": "^4.0.1",

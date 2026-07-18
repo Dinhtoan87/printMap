@@ -10,10 +10,12 @@
     "@elysiajs/cors": "^1.1.1",
     "@printmap/shared": "workspace:*",
     "elysia": "^1.1.26",
+    "pg": "^8.13.1",
     "playwright": "^1.48.0"
   },
   "devDependencies": {
     "@types/bun": "^1.1.13",
+    "@types/pg": "^8.11.10",
     "typescript": "^5.6.3"
   }
 }

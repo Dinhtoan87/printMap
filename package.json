@@ -15,6 +15,7 @@
     "data:sample": "bash scripts/make-sample-data.sh",
     "data:fonts": "bash scripts/build-fonts.sh",
     "data:glyphs": "bun scripts/build-glyphs.mjs",
+    "data:sprite": "bun scripts/build-sprite.mjs",
     "data:inspect": "bash scripts/gdb-inspect.sh",
     "data:gdb": "bash scripts/gdb-to-geojson.sh",
     "data:tiles": "bash scripts/geojson-to-pmtiles.sh"

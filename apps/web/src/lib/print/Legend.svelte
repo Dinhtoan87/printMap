@@ -1,19 +1,26 @@
 <script lang="ts">
-  import type { LayoutConfig, WidgetOffset } from '@printmap/shared';
+  import type { LayoutConfig, PageSpec, WidgetOffset } from '@printmap/shared';
   import { draggable } from './draggable';
 
-  let { layout, editable = true }: { layout: LayoutConfig; editable?: boolean } = $props();
+  let {
+    layout,
+    spec,
+    editable = true
+  }: { layout: LayoutConfig; spec: PageSpec; editable?: boolean } = $props();
 
   const onChange = (o: WidgetOffset) => {
     layout.offsets.legend = o;
   };
 </script>
 
-<!-- Chú giải HTML thủ công (port nguyên từ layout.html) — ký hiệu luôn hiển thị đầy đủ khi in -->
+<!-- Chú giải HTML thủ công (port nguyên từ layout.html) — ký hiệu luôn hiển thị đầy đủ khi in.
+     Widget nằm TRONG khung in, kéo-thả tự do; co giãn theo khổ giấy bằng zoom (hệ số k). -->
 <div
   class="draggable-element legend-box"
+  style="bottom:{spec.frame.bottom + 6}mm; right:{spec.frame.right + 6}mm;"
   use:draggable={{ offset: layout.offsets.legend, enabled: editable, restrict: '#a0-print-zone', onChange }}
 >
+  <div style="zoom:{spec.k}; width: 380mm;">
   <div class="drag-handle">:: CHÚ GIẢI BẢN ĐỒ</div>
   <div class="legend-content">
     <div class="legend-title-main">Chú Giải</div>
@@ -124,5 +131,6 @@
         <div class="label-text">Khu vực, địa bàn tìm kiếm, quy tập hài cốt liệt sĩ không rõ thông tin (vùng mờ)</div>
       </div>
     </div>
+  </div>
   </div>
 </div>

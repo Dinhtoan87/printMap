@@ -21,6 +21,30 @@ services:
       - ./:/work
     entrypoint: [""]
 
+  # Martin tile server: tự publish các bảng PostGIS thành vector tiles
+  # (mỗi bảng -> nguồn /ten_bang, source-layer = ten_bang) và phục vụ cả
+  # *.mbtiles trong ./data/tiles. Style production (styles/style.json) trỏ
+  # __MARTIN__ vào server này (API thay bằng env MARTIN_URL).
+  martin:
+    image: ghcr.io/maplibre/martin:latest
+    environment:
+      # Host "infra-postgres-1" nằm trong docker network của hệ thống bạn;
+      # nếu Postgres ở project compose khác, mở phần networks bên dưới.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mapviet:mapviet_dev_password@infra-postgres-1:5432/printdb}
+    command: ["--listen-addresses", "0.0.0.0:3000", "/tiles"]
+    volumes:
+      - ./data/tiles:/tiles
+    ports:
+      - "3001:3000"
+    # Nối vào network của stack chứa infra-postgres-1 (đổi tên cho đúng):
+    # networks:
+    #   - default
+    #   - infra
+  # networks:
+  #   infra:
+  #     external: true
+  #     name: infra_default
+
   # PostGIS (tùy chọn) nếu sau này bạn dùng postgres thay .gdb
   postgis:
     image: postgis/postgis:16-3.4
