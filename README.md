@@ -36,12 +36,31 @@ Yêu cầu: **Bun ≥ 1.1**.
 ```bash
 bun install
 bun run data:sample     # GeoJSON mẫu (Phong Điền) -> data/sample/
-bun run data:glyphs     # font PBF tiếng Việt (offline, từ DejaVu Sans)
-bun run data:sprite     # sprite ký hiệu điểm từ styles/sprite-src/*.svg
 
 bun run dev:api         # http://localhost:3000
 bun run dev:web         # http://localhost:5173
 ```
+
+> **Glyphs (font nhãn) và sprite (ký hiệu) đã được commit sẵn** trong `styles/glyphs/`
+> và `styles/sprite/` — không cần build lại. Chỉ chạy `bun run data:glyphs` /
+> `bun run data:sprite` khi muốn đổi font hoặc thêm/sửa ký hiệu.
+
+### Lưu ý khi chạy trên Windows
+
+- **Xuất PDF server-side**: cài Chromium cho Playwright một lần:
+  `bunx playwright install chromium` (trên Linux của Claude/CI đã cài sẵn ở
+  `/opt/pw-browsers`, tự nhận). Có thể chỉ định thủ công qua env `PLAYWRIGHT_CHROMIUM`.
+- **`data:glyphs`**: fontnik không có bản native cho Windows — script sẽ tự bỏ qua vì
+  glyphs đã kèm repo. Muốn tự build glyphs hãy dùng WSL, hoặc tải font PBF từ
+  [openmaptiles/fonts](https://github.com/openmaptiles/fonts/releases) giải nén vào `styles/glyphs/`.
+- **Script `.sh`** (pipeline `.gdb`, tippecanoe): chạy bằng **WSL** hoặc Git Bash.
+  Repo có `.gitattributes` ép LF cho `.sh`; nếu bạn đã clone TRƯỚC khi có file này và
+  gặp lỗi kiểu `set: pipefail: invalid option name`, chạy:
+  ```powershell
+  git config core.autocrlf false
+  git rm -r --cached scripts -q
+  git checkout -- scripts
+  ```
 
 Mở web → **"Thiết Kế Bản Vẽ In"** → chọn bố cục/tỷ lệ/tỉnh/xã → kéo thả, sửa tiêu đề →
 **Xuất PDF/PNG** (client nhanh, hoặc server chất lượng cao).
@@ -63,8 +82,13 @@ DATABASE_URL="postgresql://mapviet:mapviet_dev_password@infra-postgres-1:5432/pr
 - Nếu Postgres nằm trong compose project khác (host `infra-postgres-1`), mở phần
   `networks:` đã ghi chú sẵn trong `docker-compose.yml` và trỏ đúng tên network.
 - `styles/style.json` trỏ nguồn qua placeholder `__MARTIN__` — API thay bằng env
-  `MARTIN_URL` khi trả style. Đổi tên source/`source-layer` trong style cho khớp
+  `MARTIN_URL` khi trả style (mặc định `http://localhost:3001`, khớp mapping
+  `3001:3000` trong compose). Đổi tên source/`source-layer` trong style cho khớp
   tên bảng thật của bạn (`diaphanhanhchinhcapxa`, `mols`, `giaothong`, …).
+- **Trùng cổng**: Martin trong container lắng nghe 3000 — nếu bạn tự chạy Martin và
+  map thẳng ra cổng 3000 của máy thì nó đụng API. Hai cách xử lý: giữ mapping
+  `3001:3000` như compose (khuyến nghị), hoặc đổi cổng API trong `apps/api/.env`
+  (`PORT=3002` + sửa `PUBLIC_API_URL` và `PUBLIC_API_URL` phía `apps/web/.env`).
 
 ### 3b. Bảng số liệu + chọn tỉnh/xã — `diaphanhanhchinhcapxa`
 

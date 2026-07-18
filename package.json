@@ -12,7 +12,7 @@
     "dev:api": "bun run --cwd apps/api dev",
     "dev:web": "bun run --cwd apps/web dev",
     "build": "bun run --cwd packages/shared build && bun run --cwd apps/web build",
-    "data:sample": "bash scripts/make-sample-data.sh",
+    "data:sample": "bun scripts/gen-sample.mjs",
     "data:fonts": "bash scripts/build-fonts.sh",
     "data:glyphs": "bun scripts/build-glyphs.mjs",
     "data:sprite": "bun scripts/build-sprite.mjs",

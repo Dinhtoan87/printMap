@@ -2,7 +2,7 @@
 // Dùng Chromium (Playwright) để raster hóa SVG + ghép sheet — hoàn toàn offline,
 // không cần cài spreet/sharp. Chạy: bun scripts/build-sprite.mjs
 import { createRequire } from 'node:module';
-import { readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 
 // playwright là dependency của apps/api — resolve từ đó để chạy được ở repo root.
 const require = createRequire(new URL('../apps/api/package.json', import.meta.url));
@@ -22,10 +22,12 @@ if (icons.length === 0) {
   process.exit(1);
 }
 
-const browser = await chromium.launch({
-  executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? '/opt/pw-browsers/chromium',
-  args: ['--no-sandbox']
-});
+// Ưu tiên env; đường dẫn Linux cài sẵn nếu tồn tại; còn lại (Windows/macOS)
+// để Playwright tự tìm browser của nó (`bunx playwright install chromium`).
+const executablePath =
+  process.env.PLAYWRIGHT_CHROMIUM ??
+  (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
+const browser = await chromium.launch({ executablePath, args: ['--no-sandbox'] });
 const page = await browser.newPage();
 
 const out = await page.evaluate(async (icons) => {
