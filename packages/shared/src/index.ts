@@ -49,7 +49,7 @@ export function pageSpec(paper: PaperName, orientation: Orientation = 'landscape
       top: 24 + 8 * k, // chỗ cho tiêu đề (ngoài khung trong) + nhãn lưới trên
       left: 10 + 6 * k,
       right: 10 + 6 * k,
-      bottom: 18 + 10 * k // nhãn lưới dưới + footer (thước tỉ lệ, cơ quan)
+      bottom: 30 + 12 * k // nhãn lưới dưới + footer cao ~5 dòng (thước tỉ lệ, cơ quan)
     }
   };
 }
@@ -158,7 +158,7 @@ export const defaultLayout: LayoutConfig = {
     legend: { x: 0, y: 0 }
   },
   footer: {
-    left: { title: 'CỤC TÁC CHIẾN BTTM - QĐNDVN', sub: 'CSDL nền địa lý quốc gia 2026' },
+    left: { title: 'CỤC TÁC CHIẾN BTTM - QĐNDVN', sub: 'Bản đồ được thành lập từ các tài liệu:\n  -CSDL bản đồ TKTHCLS thành lập năm 2026\n  -Bản đồ nền tỷ lệ 1:50.000'},
     right: { title: 'CỤC CHÍNH SÁCH - BỘ QUỐC PHÒNG', sub: 'VP. BAN CHỈ ĐẠO QUỐC GIA 515' }
   }
 };

@@ -290,8 +290,9 @@
   justify-content: space-between;
   align-items: center;
   font-size: 13pt;
-  padding: 0 8mm;
+  padding: 3mm 8mm;
   box-sizing: border-box;
+  border-top: 1.5px solid #000;
 }
 .footer-col {
   line-height: 1.4;

@@ -5,8 +5,9 @@
   let {
     layout,
     spec,
-    editable = true
-  }: { layout: LayoutConfig; spec: PageSpec; editable?: boolean } = $props();
+    editable = true,
+    scale = 1
+  }: { layout: LayoutConfig; spec: PageSpec; editable?: boolean; scale?: number } = $props();
 
   const onChange = (o: WidgetOffset) => {
     layout.offsets.legend = o;
@@ -18,7 +19,7 @@
 <div
   class="draggable-element legend-box"
   style="bottom:{spec.frame.bottom + 6}mm; right:{spec.frame.right + 6}mm;"
-  use:draggable={{ offset: layout.offsets.legend, enabled: editable, restrict: '#a0-print-zone', onChange }}
+  use:draggable={{ offset: layout.offsets.legend, enabled: editable, scale, onChange }}
 >
   <div style="zoom:{spec.k}; width: 380mm;">
   <div class="drag-handle">:: CHÚ GIẢI BẢN ĐỒ</div>

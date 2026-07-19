@@ -1,95 +1,283 @@
 {
   "version": 8,
-  "name": "PrintMap (Martin + raster mbtiles)",
-  "metadata": {
-    "note": "Style production: nền ảnh raster từ data/tiles/nen.mbtiles (API /mbtiles/...), lớp chuyên đề vector từ Martin (PostGIS, DATABASE_URL). Tên source = tên bảng trong Postgres; 'source-layer' của Martin table-source cũng chính là tên bảng. Đổi tên tại đây cho khớp CSDL của bạn."
-  },
+  "name": "Bản đồ Chuyên đề Tìm kiếm Quy tập Hài cốt Liệt sĩ (Martin real-time)",
   "glyphs": "__API__/glyphs/{fontstack}/{range}.pbf",
   "sprite": "__API__/sprite/sprite",
   "sources": {
-    "nen": {
+    "nen_ban_do": {
       "type": "raster",
-      "tiles": ["__API__/mbtiles/nen/{z}/{x}/{y}"],
+      "tiles": ["https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"],
       "tileSize": 256,
-      "minzoom": 0,
-      "maxzoom": 18
+      "maxzoom": 19,
+      "attribution": "© OpenStreetMap contributors"
     },
-    "diaphanhanhchinhcapxa": { "type": "vector", "url": "__MARTIN__/diaphanhanhchinhcapxa" },
-    "thuyhe": { "type": "vector", "url": "__MARTIN__/thuyhe" },
-    "giaothong": { "type": "vector", "url": "__MARTIN__/giaothong" },
-    "duongsat": { "type": "vector", "url": "__MARTIN__/duongsat" },
-    "mols": { "type": "vector", "url": "__MARTIN__/mols" },
-    "diemdc": { "type": "vector", "url": "__MARTIN__/diemdc" }
+    "diaphanhanchinhcaphuyen": {
+      "type": "vector",
+      "tiles": ["__MARTIN__/diaphanhanchinhcaphuyen/{z}/{x}/{y}"],
+      "minzoom": 0,
+      "maxzoom": 20
+    },
+    "diaphanhanhchinhcapxa": {
+      "type": "vector",
+      "tiles": ["__MARTIN__/diaphanhanhchinhcapxa/{z}/{x}/{y}"],
+      "minzoom": 0,
+      "maxzoom": 20
+    },
+    "duongdiagioihanhchinh": {
+      "type": "vector",
+      "tiles": ["__MARTIN__/duongdiagioihanhchinh/{z}/{x}/{y}"],
+      "minzoom": 0,
+      "maxzoom": 20
+    },
+    "hientrangkhuvuctkqthclsa": {
+      "type": "vector",
+      "tiles": ["__MARTIN__/hientrangkhuvuctkqthclsa/{z}/{x}/{y}"],
+      "minzoom": 0,
+      "maxzoom": 20
+    },
+    "nghiatrangdiaphuonga": {
+      "type": "vector",
+      "tiles": ["__MARTIN__/nghiatrangdiaphuonga/{z}/{x}/{y}"],
+      "minzoom": 0,
+      "maxzoom": 20
+    },
+    "nghiatranglietsia": {
+      "type": "vector",
+      "tiles": ["__MARTIN__/nghiatranglietsia/{z}/{x}/{y}"],
+      "minzoom": 0,
+      "maxzoom": 20
+    },
+
+    "gj_momoiphathien": {
+      "type": "geojson",
+      "data": "__API__/api/admin/geojson/momoiphathien",
+      "cluster": true,
+      "clusterRadius": 36,
+      "clusterMaxZoom": 16
+    },
+    "gj_mogiadinh": {
+      "type": "geojson",
+      "data": "__API__/api/admin/geojson/molietsidogiadinhchamsocquanly",
+      "cluster": true,
+      "clusterRadius": 44,
+      "clusterMaxZoom": 16
+    },
+    "gj_ntls": {
+      "type": "geojson",
+      "data": "__API__/api/admin/geojson/nghiatranglietsip",
+      "cluster": true,
+      "clusterRadius": 36,
+      "clusterMaxZoom": 16
+    },
+    "gj_ntdp": {
+      "type": "geojson",
+      "data": "__API__/api/admin/geojson/nghiatrangdiaphuongp",
+      "cluster": true,
+      "clusterRadius": 36,
+      "clusterMaxZoom": 16
+    }
   },
   "layers": [
-    { "id": "bg", "type": "background", "paint": { "background-color": "#f7f6f2" } },
+    {
+      "id": "background-osm",
+      "type": "raster",
+      "source": "nen_ban_do"
+    },
 
-    { "id": "nen-raster", "type": "raster", "source": "nen",
-      "paint": { "raster-opacity": 1 } },
+    {
+      "id": "fill-hientrang-tkqt",
+      "type": "fill",
+      "source": "hientrangkhuvuctkqthclsa",
+      "source-layer": "hientrangkhuvuctkqthclsa",
+      "paint": {
+        "fill-antialias": true,
+        "fill-opacity": 0.5,
+        "fill-color": [
+          "match",
+          ["get", "hiện trạng tìm kiếm"],
+          "Khu vực, địa bàn có mộ liệt sĩ đã tìm kiếm, quy tập xong", "#ffffff",
+          "Khu vực địa bàn có thông tin mộ liệt sĩ, đã tìm kiếm, quy tập nhưng chưa hết cần tiếp tục tìm kiếm, quy tập", "#ffff99",
+          "Khu vực, địa bàn có thông tin mộ liệt sĩ nhưng chưa tổ chức tìm kiếm, quy tập", "#ccff99",
+          "Khu vực, địa bàn có thông tin mộ liệt sĩ đã tìm kiếm quy tập nhưng chưa có kết quả", "#ffb3b3",
+          "#c6d9f1"
+        ]
+      }
+    },
+    {
+      "id": "line-hientrang-tkqt",
+      "type": "line",
+      "source": "hientrangkhuvuctkqthclsa",
+      "source-layer": "hientrangkhuvuctkqthclsa",
+      "paint": { "line-color": "#5a5a5a", "line-width": 0.8 }
+    },
+    {
+      "id": "fill-nghiatrang-diaphuong",
+      "type": "fill",
+      "source": "nghiatrangdiaphuonga",
+      "source-layer": "nghiatrangdiaphuonga",
+      "paint": { "fill-color": "#cfd8dc", "fill-opacity": 0.55, "fill-outline-color": "#455a64" }
+    },
+    {
+      "id": "fill-nghiatrang-lietsi",
+      "type": "fill",
+      "source": "nghiatranglietsia",
+      "source-layer": "nghiatranglietsia",
+      "paint": { "fill-color": "#ffcdd2", "fill-opacity": 0.65, "fill-outline-color": "#c62828" }
+    },
 
-    { "id": "thuyhe-fill", "type": "fill", "source": "thuyhe", "source-layer": "thuyhe",
-      "paint": { "fill-color": "#c2ffff", "fill-opacity": 0.85, "fill-outline-color": "#00cccc" } },
+    {
+      "id": "line-diagioi-phaply",
+      "type": "line",
+      "source": "duongdiagioihanhchinh",
+      "source-layer": "duongdiagioihanhchinh",
+      "paint": { "line-color": "#000000", "line-width": 0.6, "line-opacity": 0.45 }
+    },
+    {
+      "id": "line-ranh-huyen",
+      "type": "line",
+      "source": "diaphanhanchinhcaphuyen",
+      "source-layer": "diaphanhanchinhcaphuyen",
+      "paint": { "line-color": "#000000", "line-width": 2.2, "line-dasharray": [5, 2, 1, 2] }
+    },
+    {
+      "id": "line-ranh-xa",
+      "type": "line",
+      "source": "diaphanhanhchinhcapxa",
+      "source-layer": "diaphanhanhchinhcapxa",
+      "paint": { "line-color": "#ff00ff", "line-width": 1.3, "line-dasharray": [4, 2] }
+    },
 
-    { "id": "diagioi-xa", "type": "line", "source": "diaphanhanhchinhcapxa", "source-layer": "diaphanhanhchinhcapxa",
-      "paint": { "line-color": "#ff00ff", "line-width": 1.6, "line-dasharray": [3, 2] } },
-
-    { "id": "duongsat-base", "type": "line", "source": "duongsat", "source-layer": "duongsat",
-      "paint": { "line-color": "#000000", "line-width": 2 } },
-    { "id": "duongsat-ties", "type": "line", "source": "duongsat", "source-layer": "duongsat",
-      "paint": { "line-color": "#ffffff", "line-width": 2, "line-dasharray": [1, 2] } },
-
-    { "id": "giaothong-casing", "type": "line", "source": "giaothong", "source-layer": "giaothong",
-      "layout": { "line-cap": "round", "line-join": "round" },
-      "paint": { "line-color": "#7a3a00", "line-width": 6 } },
-    { "id": "giaothong-line", "type": "line", "source": "giaothong", "source-layer": "giaothong",
-      "layout": { "line-cap": "round", "line-join": "round" },
-      "paint": { "line-color": "#d35400", "line-width": 3.5 } },
-
-    { "id": "mols-pts", "type": "symbol", "source": "mols", "source-layer": "mols",
+    {
+      "id": "label-xa",
+      "type": "symbol",
+      "source": "diaphanhanhchinhcapxa",
+      "source-layer": "diaphanhanhchinhcapxa",
+      "minzoom": 10,
       "layout": {
-        "icon-image": ["match", ["get", "trangthai"],
-          "moi", "grave-red",
-          "tieptuc", "grave-red",
-          "chuaketqua", "grave-red",
-          "giadinh", "grave-green",
-          "chua", "grave-green",
-          "nghiatrang", "ntls",
-          "xong", "grave-black",
-          "khongro", "grave-black",
-          "grave-black"],
-        "icon-size": 0.9,
-        "icon-allow-overlap": true
-      } },
-
-    { "id": "diemdc-pts", "type": "symbol", "source": "diemdc", "source-layer": "diemdc",
-      "layout": {
-        "icon-image": ["match", ["get", "loai"],
-          "ubnd_huyen", "ubnd-huyen",
-          "ubnd_xa", "ubnd-xa",
-          "qs_huyen", "qs-huyen",
-          "qs_tinh", "qs-tinh",
-          "dcs-nongthon"],
-        "icon-size": 0.9,
-        "icon-allow-overlap": true
-      } },
-
-    { "id": "tenxa-label", "type": "symbol", "source": "diaphanhanhchinhcapxa", "source-layer": "diaphanhanhchinhcapxa",
-      "layout": {
-        "symbol-placement": "point",
-        "text-field": ["get", "tenxa"],
-        "text-font": ["Noto Sans Bold"],
-        "text-size": 13
-      },
-      "paint": { "text-color": "#333", "text-halo-color": "#fff", "text-halo-width": 1.5 } },
-
-    { "id": "diemdc-label", "type": "symbol", "source": "diemdc", "source-layer": "diemdc",
-      "layout": {
-        "text-field": ["get", "name"],
+        "text-field": ["coalesce", ["get", "ten"], ""],
         "text-font": ["Noto Sans Regular"],
         "text-size": 12,
-        "text-offset": [0, 1.2],
-        "text-anchor": "top"
+        "text-anchor": "center",
+        "text-max-width": 8
       },
-      "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 1.5 } }
+      "paint": { "text-color": "#4a148c", "text-halo-color": "#ffffff", "text-halo-width": 1.6 }
+    },
+    {
+      "id": "label-huyen",
+      "type": "symbol",
+      "source": "diaphanhanchinhcaphuyen",
+      "source-layer": "diaphanhanchinhcaphuyen",
+      "minzoom": 8,
+      "layout": {
+        "text-field": ["coalesce", ["get", "ten"], ""],
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 15,
+        "text-transform": "uppercase",
+        "text-letter-spacing": 0.05,
+        "text-anchor": "center",
+        "text-max-width": 9
+      },
+      "paint": { "text-color": "#000000", "text-halo-color": "#ffffff", "text-halo-width": 2 }
+    },
+
+    {
+      "id": "ntdp-cluster",
+      "type": "symbol",
+      "source": "gj_ntdp",
+      "filter": ["has", "point_count"],
+      "layout": {
+        "icon-image": "grave-black",
+        "icon-size": 0.9,
+        "icon-allow-overlap": true,
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 13,
+        "text-offset": [1.0, -0.8],
+        "text-allow-overlap": true
+      },
+      "paint": { "text-color": "#263238", "text-halo-color": "#ffffff", "text-halo-width": 1.8 }
+    },
+    {
+      "id": "ntdp-point",
+      "type": "symbol",
+      "source": "gj_ntdp",
+      "filter": ["!", ["has", "point_count"]],
+      "layout": { "icon-image": "grave-black", "icon-size": 0.9, "icon-allow-overlap": true }
+    },
+
+    {
+      "id": "ntls-cluster",
+      "type": "symbol",
+      "source": "gj_ntls",
+      "filter": ["has", "point_count"],
+      "layout": {
+        "icon-image": "ntls",
+        "icon-size": 0.9,
+        "icon-allow-overlap": true,
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 13,
+        "text-offset": [1.0, -0.8],
+        "text-allow-overlap": true
+      },
+      "paint": { "text-color": "#b71c1c", "text-halo-color": "#ffffff", "text-halo-width": 1.8 }
+    },
+    {
+      "id": "ntls-point",
+      "type": "symbol",
+      "source": "gj_ntls",
+      "filter": ["!", ["has", "point_count"]],
+      "layout": { "icon-image": "ntls", "icon-size": 0.9, "icon-allow-overlap": true }
+    },
+
+    {
+      "id": "mogiadinh-cluster",
+      "type": "symbol",
+      "source": "gj_mogiadinh",
+      "filter": ["has", "point_count"],
+      "layout": {
+        "icon-image": "grave-green",
+        "icon-size": 0.95,
+        "icon-allow-overlap": true,
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 13,
+        "text-offset": [1.0, -0.8],
+        "text-allow-overlap": true
+      },
+      "paint": { "text-color": "#1b5e20", "text-halo-color": "#ffffff", "text-halo-width": 1.8 }
+    },
+    {
+      "id": "mogiadinh-point",
+      "type": "symbol",
+      "source": "gj_mogiadinh",
+      "filter": ["!", ["has", "point_count"]],
+      "layout": { "icon-image": "grave-green", "icon-size": 0.95, "icon-allow-overlap": true }
+    },
+
+    {
+      "id": "momoi-cluster",
+      "type": "symbol",
+      "source": "gj_momoiphathien",
+      "filter": ["has", "point_count"],
+      "layout": {
+        "icon-image": "grave-red",
+        "icon-size": 0.95,
+        "icon-allow-overlap": true,
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 13,
+        "text-offset": [1.0, -0.8],
+        "text-allow-overlap": true
+      },
+      "paint": { "text-color": "#b71c1c", "text-halo-color": "#ffffff", "text-halo-width": 1.8 }
+    },
+    {
+      "id": "momoi-point",
+      "type": "symbol",
+      "source": "gj_momoiphathien",
+      "filter": ["!", ["has", "point_count"]],
+      "layout": { "icon-image": "grave-red", "icon-size": 0.95, "icon-allow-overlap": true }
+    }
   ]
 }

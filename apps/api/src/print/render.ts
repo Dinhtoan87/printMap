@@ -1,20 +1,14 @@
-import { chromium, type Browser } from 'playwright';
+import { spawn } from 'node:child_process';
+import { readFileSync, unlinkSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
 import type { PrintRequest } from '@printmap/shared';
 import { pageSpec } from '@printmap/shared';
 import { config } from '../config.ts';
 
-let browserPromise: Promise<Browser> | null = null;
-
-async function getBrowser(): Promise<Browser> {
-  if (!browserPromise) {
-    browserPromise = chromium.launch({
-      // Chromium đã cài sẵn trong môi trường; nếu không đặt sẽ dùng bản Playwright tải về.
-      executablePath: config.chromiumPath || undefined,
-      args: ['--no-sandbox', '--disable-dev-shm-usage']
-    });
-  }
-  return browserPromise;
-}
+const WORKER = join(dirname(fileURLToPath(import.meta.url)), 'render-worker.mjs');
 
 export interface RenderResult {
   buffer: Buffer;
@@ -22,10 +16,41 @@ export interface RenderResult {
   filename: string;
 }
 
+interface WorkerPayload {
+  url: string;
+  format: 'pdf' | 'png';
+  scaleFactor: number;
+  widthMm: number;
+  heightMm: number;
+  chromiumPath: string;
+  outPath: string;
+}
+
+/**
+ * Chạy render bằng tiến trình NODE riêng. Lý do: Playwright `chromium.launch` bị TREO
+ * khi chạy dưới runtime bun, nhưng chạy bình thường dưới node. API (bun) spawn node.
+ */
+function runWorker(payload: WorkerPayload): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const nodeBin = process.env.NODE_BIN || 'node';
+    const child = spawn(nodeBin, [WORKER, JSON.stringify(payload)], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let stderr = '';
+    child.stdout.on('data', () => {});
+    child.stderr.on('data', (d) => (stderr += d.toString()));
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(stderr.trim() || `render worker thoát với mã ${code}`));
+    });
+  });
+}
+
 /**
  * Render trang /print của web ở độ phân giải cao rồi xuất PDF (hoặc PNG).
  * - deviceScaleFactor nâng độ phân giải raster của canvas bản đồ.
- * - page.pdf giữ chữ/vector nét ở đúng khổ 840x680mm.
+ * - page.pdf giữ chữ/vector nét ở đúng khổ giấy.
  */
 export async function renderPrint(req: PrintRequest): Promise<RenderResult> {
   const format = req.format ?? req.layout.format ?? 'pdf';
@@ -34,32 +59,27 @@ export async function renderPrint(req: PrintRequest): Promise<RenderResult> {
 
   const cfg = Buffer.from(JSON.stringify(req.layout), 'utf8').toString('base64url');
   const url = `${config.webUrl}/print?cfg=${cfg}`;
+  const outPath = join(tmpdir(), `printmap-${randomUUID()}.${format}`);
 
-  const browser = await getBrowser();
-  const context = await browser.newContext({ deviceScaleFactor: scaleFactor });
-  const page = await context.newPage();
+  await runWorker({
+    url,
+    format,
+    scaleFactor,
+    widthMm: spec.wMm,
+    heightMm: spec.hMm,
+    chromiumPath: config.chromiumPath,
+    outPath
+  });
 
+  const buffer = readFileSync(outPath);
   try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 60_000 });
-    // Trang /print đặt cờ khi bản đồ đã render xong (map 'idle').
-    await page.waitForFunction('window.__PRINT_READY__ === true', { timeout: 60_000 });
-
-    const base = `bando_${req.layout.paper ?? 'A1'}_${spec.wMm}x${spec.hMm}`;
-    if (format === 'png') {
-      const el = page.locator('#a0-print-zone');
-      const buffer = await el.screenshot({ type: 'png' });
-      return { buffer, contentType: 'image/png', filename: `${base}.png` };
-    }
-
-    const pdf = await page.pdf({
-      width: `${spec.wMm}mm`,
-      height: `${spec.hMm}mm`,
-      printBackground: true,
-      pageRanges: '1',
-      margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' }
-    });
-    return { buffer: pdf, contentType: 'application/pdf', filename: `${base}.pdf` };
-  } finally {
-    await context.close();
+    unlinkSync(outPath);
+  } catch {
+    /* file tạm — bỏ qua nếu xóa lỗi */
   }
+
+  const base = `bando_${req.layout.paper ?? 'A1'}_${spec.wMm}x${spec.hMm}`;
+  return format === 'png'
+    ? { buffer, contentType: 'image/png', filename: `${base}.png` }
+    : { buffer, contentType: 'application/pdf', filename: `${base}.pdf` };
 }

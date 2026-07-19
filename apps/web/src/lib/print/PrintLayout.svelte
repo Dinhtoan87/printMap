@@ -16,8 +16,9 @@
   let {
     layout,
     editable = true,
+    scale = 1,
     onready
-  }: { layout: LayoutConfig; editable?: boolean; onready?: () => void } = $props();
+  }: { layout: LayoutConfig; editable?: boolean; scale?: number; onready?: () => void } = $props();
 
   const spec = $derived(pageSpec(layout.paper, layout.orientation));
 
@@ -190,8 +191,8 @@
   <!-- Lưới ô vuông (m) + nhãn lưới trong rãnh giữa 2 khung -->
   <GridOverlay {map} {spec} enabled={layout.showGrid} />
 
-  <StatsTable {layout} {spec} {editable} />
-  <Legend {layout} {spec} {editable} />
+  <StatsTable {layout} {spec} {editable} {scale} />
+  <Legend {layout} {spec} {editable} {scale} />
 
   <!-- Footer: ngoài khung bản đồ (rãnh dưới), trong khung ngoài -->
   <div
@@ -205,14 +206,14 @@
     >
       <div class="footer-col" style="text-align: left;">
         <strong>{layout.footer.left.title}</strong><br />
-        <span style="font-size: 10pt;">{layout.footer.left.sub}</span>
+        <span style="font-size: 10pt;white-space: pre-line;">{layout.footer.left.sub}</span>
       </div>
 
       <ScaleBar {map} {layout} totalMm={Math.max(40, 80 * spec.k)} zoomComp={spec.k} />
 
       <div class="footer-col" style="text-align: right;">
         <strong>{layout.footer.right.title}</strong><br />
-        <span style="font-size: 10pt;">{layout.footer.right.sub}</span>
+        <span style="font-size: 10pt;white-space: pre-line;">{layout.footer.right.sub}</span>
       </div>
     </div>
   </div>

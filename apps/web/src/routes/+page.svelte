@@ -7,6 +7,9 @@
   import {
     defaultLayout,
     STANDARD_SCALES,
+    pageSpec,
+    SCREEN_DPI,
+    MM_PER_INCH,
     type LayoutConfig,
     type PaperName,
     type Orientation
@@ -35,8 +38,34 @@
 
   let printLayout = $state<ReturnType<typeof PrintLayout> | null>(null);
 
+  // --- Thu nhỏ bản vẽ để vừa cửa sổ (giữ đúng tỉ lệ khổ giấy) ---
+  const sheetSpec = $derived(pageSpec(layout.paper, layout.orientation));
+  const SHEET_W = $derived((sheetSpec.wMm / MM_PER_INCH) * SCREEN_DPI);
+  const SHEET_H = $derived((sheetSpec.hMm / MM_PER_INCH) * SCREEN_DPI);
+  let printScale = $state(0.3);
+
+  function computeScale() {
+    if (typeof window === 'undefined') return;
+    const availW = window.innerWidth - 90;
+    const availH = window.innerHeight - 260; // trừ thanh công cụ + hàng nút + padding
+    printScale = Math.max(0.12, Math.min(0.75, Math.min(availW / SHEET_W, availH / SHEET_H)));
+  }
+
+  // Tự tính lại khi đổi khổ giấy / hướng.
+  $effect(() => {
+    void SHEET_W;
+    void SHEET_H;
+    computeScale();
+  });
+
+  function openModal() {
+    computeScale();
+    showModal = true;
+  }
+
   onMount(() => {
     ensurePmtilesProtocol();
+    window.addEventListener('resize', computeScale);
     const map = new maplibregl.Map({
       container: mainMapEl,
       style: STYLE_URL,
@@ -51,7 +80,10 @@
     });
 
     loadProvinces();
-    return () => map.remove();
+    return () => {
+      window.removeEventListener('resize', computeScale);
+      map.remove();
+    };
   });
 
   async function loadProvinces() {
@@ -125,7 +157,7 @@
 
 <div id="top-bar">
   <strong>HỆ THỐNG PHÂN TÍCH QUY TẬP CHUYÊN NGÀNH</strong>
-  <button onclick={() => (showModal = true)}>Thiết Kế Bản Vẽ In</button>
+  <button onclick={openModal}>Thiết Kế Bản Vẽ In</button>
 </div>
 
 <div id="main-map" bind:this={mainMapEl}></div>
@@ -190,7 +222,14 @@
       </div>
 
       {#key `${layout.paper}-${layout.orientation}`}
-        <PrintLayout bind:this={printLayout} {layout} editable={true} />
+        <div
+          class="print-scale-viewport"
+          style="width:{SHEET_W * printScale}px; height:{SHEET_H * printScale}px;"
+        >
+          <div class="print-scale-inner" style="transform: scale({printScale});">
+            <PrintLayout bind:this={printLayout} {layout} editable={true} scale={printScale} />
+          </div>
+        </div>
       {/key}
 
       {#if errorMsg}
@@ -283,6 +322,18 @@
     align-items: center;
     gap: 15px;
     margin: 0 auto;
+  }
+  /* Khung xem đã thu nhỏ: giữ đúng tỉ lệ bản vẽ, ẩn phần tràn. */
+  .print-scale-viewport {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #ccc;
+    background: #f0f0f0;
+    flex-shrink: 0;
+  }
+  .print-scale-inner {
+    transform-origin: top left;
+    width: max-content;
   }
   .toolbar {
     display: flex;

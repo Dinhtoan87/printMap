@@ -16,9 +16,13 @@ export const config = {
    * Linux cài sẵn không tồn tại (Windows/macOS) -> để trống để Playwright dùng
    * browser tự tải của nó (chạy `bunx playwright install chromium` một lần).
    */
-  chromiumPath:
-    process.env.PLAYWRIGHT_CHROMIUM ??
-    (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : ''),
+  chromiumPath: (() => {
+    // Chỉ dùng đường dẫn nếu file THẬT SỰ tồn tại (env có thể trỏ path Linux khi chạy trên Windows).
+    const envPath = process.env.PLAYWRIGHT_CHROMIUM;
+    if (envPath && existsSync(envPath)) return envPath;
+    if (existsSync('/opt/pw-browsers/chromium')) return '/opt/pw-browsers/chromium';
+    return '';
+  })(),
   /** URL công khai của Martin tile server (thay __MARTIN__ trong style). */
   martinUrl: process.env.MARTIN_URL ?? 'http://localhost:3001',
   /** PostGIS chứa các lớp chuyên đề (diaphanhanhchinhcapxa, mols, ...). Bỏ trống -> dùng dữ liệu mẫu. */

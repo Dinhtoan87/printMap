@@ -5,8 +5,9 @@
   let {
     layout,
     spec,
-    editable = true
-  }: { layout: LayoutConfig; spec: PageSpec; editable?: boolean } = $props();
+    editable = true,
+    scale = 1
+  }: { layout: LayoutConfig; spec: PageSpec; editable?: boolean; scale?: number } = $props();
 
   const onChange = (o: WidgetOffset) => {
     layout.offsets.table = o;
@@ -30,7 +31,7 @@
 <div
   class="draggable-element data-table-box"
   style="top:{spec.frame.top + 6}mm; right:{spec.frame.right + 6}mm;"
-  use:draggable={{ offset: layout.offsets.table, enabled: editable, restrict: '#a0-print-zone', onChange }}
+  use:draggable={{ offset: layout.offsets.table, enabled: editable, scale, onChange }}
 >
   <div style="zoom:{spec.k};">
     <div class="drag-handle">:: {heading}</div>

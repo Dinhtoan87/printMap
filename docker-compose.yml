@@ -22,21 +22,25 @@ services:
     entrypoint: [""]
 
   # Martin tile server: tự publish các bảng PostGIS thành vector tiles
-  # (mỗi bảng -> nguồn /ten_bang, source-layer = ten_bang) và phục vụ cả
-  # *.mbtiles trong ./data/tiles. Style production (styles/style.json) trỏ
-  # __MARTIN__ vào server này (API thay bằng env MARTIN_URL).
+  # (mỗi bảng -> nguồn /<ten_bang>/{z}/{x}/{y}, source-layer = ten_bang) và phục vụ
+  # cả *.mbtiles trong ./data/tiles. Style production (styles/style.json) trỏ
+  # __MARTIN__ vào server này (API thay bằng env MARTIN_URL, mặc định :3000).
   martin:
     image: ghcr.io/maplibre/martin:latest
     environment:
-      # Host "infra-postgres-1" nằm trong docker network của hệ thống bạn;
-      # nếu Postgres ở project compose khác, mở phần networks bên dưới.
-      DATABASE_URL: ${DATABASE_URL:-postgresql://mapviet:mapviet_dev_password@infra-postgres-1:5432/printdb}
+      # Postgres chạy TRÊN HOST -> dùng host.docker.internal (Windows/macOS).
+      # Nếu Postgres cũng trong docker (vd container infra-postgres-1), đổi host cho đúng
+      # và nối network ở phần dưới.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mapviet:mapviet_dev_password@host.docker.internal:5432/printdb}
     command: ["--listen-addresses", "0.0.0.0:3000", "/tiles"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data/tiles:/tiles
     ports:
-      - "3001:3000"
-    # Nối vào network của stack chứa infra-postgres-1 (đổi tên cho đúng):
+      # Host :3000 -> Martin. API Elysia chạy ở :3001 (apps/api/.env: PORT=3001).
+      - "3000:3000"
+    # Nếu Postgres nằm trong 1 compose stack khác, dùng network external thay cho extra_hosts:
     # networks:
     #   - default
     #   - infra
