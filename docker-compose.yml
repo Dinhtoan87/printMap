@@ -25,29 +25,42 @@ services:
   # (mỗi bảng -> nguồn /<ten_bang>/{z}/{x}/{y}, source-layer = ten_bang) và phục vụ
   # cả *.mbtiles trong ./data/tiles. Style production (styles/style.json) trỏ
   # __MARTIN__ vào server này (API thay bằng env MARTIN_URL, mặc định :3000).
+  # martin:
+  #   image: ghcr.io/maplibre/martin:latest
+  #   environment:
+  #     # Postgres chạy TRÊN HOST -> dùng host.docker.internal (Windows/macOS).
+  #     # Nếu Postgres cũng trong docker (vd container infra-postgres-1), đổi host cho đúng
+  #     # và nối network ở phần dưới.
+  #     DATABASE_URL: ${DATABASE_URL:-postgresql://samcom:Ktcn@2021@192.168.5.36:5432/mo_liet_sy}
+  #   command: ["--listen-addresses", "0.0.0.0:3000", "/tiles"]
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   volumes:
+  #     - ./data/tiles:/tiles
+  #   ports:
+  #     # Host :3000 -> Martin. API Elysia chạy ở :3001 (apps/api/.env: PORT=3001).
+  #     - "3000:3000"
+  #   # Nếu Postgres nằm trong 1 compose stack khác, dùng network external thay cho extra_hosts:
+  #   # networks:
+  #   #   - default
+  #   #   - infra
+  # # networks:
+  # #   infra:
+  # #     external: true
+  # #     name: infra_default
   martin:
     image: ghcr.io/maplibre/martin:latest
     environment:
-      # Postgres chạy TRÊN HOST -> dùng host.docker.internal (Windows/macOS).
-      # Nếu Postgres cũng trong docker (vd container infra-postgres-1), đổi host cho đúng
-      # và nối network ở phần dưới.
-      DATABASE_URL: ${DATABASE_URL:-postgresql://mapviet:mapviet_dev_password@host.docker.internal:5432/printdb}
+      # Thay host.docker.internal bằng IP 192.168.5.36
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mapviet:mapviet_dev_password@host.docker.internal:5432/mo_liet_sy}
     command: ["--listen-addresses", "0.0.0.0:3000", "/tiles"]
+    # (Có thể xóa khối extra_hosts nếu không còn dùng kết nối về máy host)
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./data/tiles:/tiles
     ports:
-      # Host :3000 -> Martin. API Elysia chạy ở :3001 (apps/api/.env: PORT=3001).
       - "3000:3000"
-    # Nếu Postgres nằm trong 1 compose stack khác, dùng network external thay cho extra_hosts:
-    # networks:
-    #   - default
-    #   - infra
-  # networks:
-  #   infra:
-  #     external: true
-  #     name: infra_default
 
   # PostGIS (tùy chọn) nếu sau này bạn dùng postgres thay .gdb
   postgis:

@@ -67,5 +67,6 @@ export const mbtilesRoutes = new Elysia().get('/mbtiles/:name/:z/:x/:y', ({ para
   const d = row.tile_data;
   if (d.length > 2 && d[0] === 0x1f && d[1] === 0x8b) headers['Content-Encoding'] = 'gzip';
 
-  return new Response(d, { headers });
+  // Cast: Uint8Array chạy được với Response của Bun, chỉ lệch type do @types/node (typed-array generic).
+  return new Response(d as unknown as BodyInit, { headers });
 });

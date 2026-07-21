@@ -24,7 +24,7 @@
   ];
 
   const heading = $derived(
-    layout.commune ? `SỐ LIỆU TÌM KIẾM, QUY TẬP — ${layout.commune.tenxa.toUpperCase()}` : 'SỐ LIỆU TÌM KIẾM, QUY TẬP'
+    layout.area ? `SỐ LIỆU TÌM KIẾM, QUY TẬP — ${layout.area.name.toUpperCase()}` : 'SỐ LIỆU TÌM KIẾM, QUY TẬP'
   );
 </script>
 

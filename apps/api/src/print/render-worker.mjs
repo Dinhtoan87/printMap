@@ -27,7 +27,9 @@ const browser = await launchBrowser();
 try {
   const context = await browser.newContext({ deviceScaleFactor: scaleFactor ?? 3 });
   const page = await context.newPage();
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 60_000 });
+  // KHÔNG dùng waitUntil:'networkidle' — vài nguồn tile (OSM) luôn có request lai rai
+  // nên mạng không bao giờ "idle" và goto hết giờ. Cờ __PRINT_READY__ mới là tín hiệu đúng.
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   // Trang /print đặt cờ khi bản đồ render xong (map 'idle' + các tác vụ nạp xã).
   await page.waitForFunction('window.__PRINT_READY__ === true', { timeout: 60_000 });
 

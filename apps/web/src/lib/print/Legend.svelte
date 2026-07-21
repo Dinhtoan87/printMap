@@ -40,7 +40,7 @@
           <div class="icon-dot-center double-circle"></div>
           <div class="icon-dot-center" style="transform: scale(0.8);"></div>
         </div>
-        <div class="label-text">UBND huyện; xã</div>
+        <div class="label-text">UBND phường; xã</div>
       </div>
       <div class="legend-item-flex">
         <div class="symbol-wrapper"><div class="icon-army" style="border-style: solid;">★</div></div>
@@ -55,7 +55,7 @@
       </div>
       <div class="legend-item-flex">
         <div class="symbol-wrapper"><div class="icon-army" style="transform: scale(0.8);">★</div></div>
-        <div class="label-text">Ban Chỉ huy Quân sự huyện</div>
+        <div class="label-text">Ban Chỉ huy Quân sự xã</div>
       </div>
       <div class="legend-item-flex">
         <div class="symbol-wrapper bg-pink-mask"><div class="line-boundary line-province"></div></div>
@@ -67,7 +67,7 @@
       </div>
       <div class="legend-item-flex">
         <div class="symbol-wrapper bg-pink-mask"><div class="line-boundary line-district"></div></div>
-        <div class="label-text">Địa giới huyện</div>
+        <div class="label-text">Địa giới xã</div>
       </div>
       <div class="legend-item-flex">
         <div class="symbol-wrapper"><div class="line-road"><span class="road-number">37</span></div></div>

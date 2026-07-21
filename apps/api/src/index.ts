@@ -7,6 +7,7 @@ import { renderPrint } from './print/render.ts';
 import { adminRoutes } from './admin/index.ts';
 import { mbtilesRoutes } from './mbtiles.ts';
 import type { PrintRequest } from '@printmap/shared';
+import { swagger } from '@elysiajs/swagger';
 
 /** Đọc style JSON, thay __API__ -> URL API và __MARTIN__ -> URL Martin. */
 function readStyle(name: string): unknown | null {
@@ -21,6 +22,19 @@ function readStyle(name: string): unknown | null {
 
 const app = new Elysia()
   .use(cors())
+  .use(
+    swagger({
+      provider: 'swagger-ui',
+      path: '/swagger',
+      // Spec JSON được plugin tự phục vụ tại /swagger/json; không cần khai báo url thủ công.
+      documentation: {
+        info: {
+          title: 'PrintMap API',
+          version: '1.0.0'
+        }
+      }
+    })
+  )
   .use(adminRoutes)
   .use(mbtilesRoutes)
 
@@ -91,7 +105,8 @@ const app = new Elysia()
         return { error: 'missing layout' };
       }
       const { buffer, contentType, filename } = await renderPrint(req);
-      return new Response(buffer, {
+      // Cast: Buffer chạy được với Response của Bun, chỉ lệch type do @types/node (typed-array generic).
+      return new Response(buffer as unknown as BodyInit, {
         headers: {
           'Content-Type': contentType,
           'Content-Disposition': `attachment; filename="${filename}"`,

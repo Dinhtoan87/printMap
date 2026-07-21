@@ -6,6 +6,9 @@
   import { ensurePmtilesProtocol } from '$lib/pmtiles';
   import {
     defaultLayout,
+    emptyStats,
+    BASEMAPS,
+    DPI_OPTIONS,
     STANDARD_SCALES,
     pageSpec,
     SCREEN_DPI,
@@ -101,34 +104,65 @@
   async function loadCommunes() {
     communes = [];
     communeSel = '';
-    if (!provinceSel) return;
-    try {
-      communes = await (await fetch(`${API_URL}/api/admin/communes?matinh=${provinceSel}`)).json();
-    } catch {
-      /* ignore */
+    if (provinceSel) {
+      try {
+        communes = await (await fetch(`${API_URL}/api/admin/communes?matinh=${provinceSel}`)).json();
+      } catch {
+        /* ignore */
+      }
     }
+    // Đổi tỉnh -> cập nhật lại vùng in (cấp tỉnh nếu đã chọn tỉnh, hoặc toàn vùng).
+    await updateArea();
   }
 
-  /** Chọn xã: zoom tới xã, đổi tiêu đề, nạp số liệu bảng, che nền ngoài xã. */
-  async function onCommuneChange() {
-    if (!communeSel) {
-      layout.commune = null;
-      return;
-    }
+  /** Chuẩn hoá tên tỉnh: giữ nguyên nếu đã có tiền tố "Tỉnh/Thành phố", ngược lại thêm "TỈNH ". */
+  function provinceLabel(tentinh: string): string {
+    return /^(tỉnh|thành phố|tp\.?)\s/i.test(tentinh.trim())
+      ? tentinh.toUpperCase()
+      : `TỈNH ${tentinh.toUpperCase()}`;
+  }
+
+  /**
+   * Cập nhật vùng in theo lựa chọn tỉnh/xã:
+   *  - Có xã -> in theo xã (che ngoài ranh giới xã), số liệu + tiêu đề của xã.
+   *  - Chỉ có tỉnh (xã "toàn vùng") -> in theo tỉnh (che ngoài ranh giới tỉnh), số liệu tổng của tỉnh.
+   *  - Chưa chọn tỉnh -> in TOÀN VÙNG (không che nền), số liệu để trống.
+   */
+  async function updateArea() {
+    errorMsg = '';
     try {
-      const d = await (await fetch(`${API_URL}/api/admin/commune/${communeSel}`)).json();
-      layout.commune = {
-        maxa: d.maxa,
-        tenxa: d.tenxa,
-        matinh: d.matinh,
-        tentinh: d.tentinh,
-        bbox: d.bbox
-      };
-      layout.stats = { ...d.stats };
-      const prefix = /^(xã|phường|thị trấn)/i.test(d.tenxa) ? '' : 'XÃ ';
-      layout.title = `BẢN ĐỒ TÌM KIẾM, QUY TẬP HÀI CỐT LIỆT SĨ ${prefix}${d.tenxa.toUpperCase()} - TỈNH ${d.tentinh.toUpperCase()}`;
+      if (communeSel) {
+        const d = await (await fetch(`${API_URL}/api/admin/commune/${communeSel}`)).json();
+        layout.area = {
+          kind: 'commune',
+          code: d.maxa,
+          name: d.tenxa,
+          matinh: d.matinh,
+          tentinh: d.tentinh,
+          bbox: d.bbox
+        };
+        layout.stats = { ...d.stats };
+        const prefix = /^(xã|phường|thị trấn)/i.test(d.tenxa) ? '' : 'XÃ ';
+        layout.title = `BẢN ĐỒ TÌM KIẾM, QUY TẬP HÀI CỐT LIỆT SĨ ${prefix}${d.tenxa.toUpperCase()} - ${provinceLabel(d.tentinh)}`;
+      } else if (provinceSel) {
+        const d = await (await fetch(`${API_URL}/api/admin/province/${provinceSel}`)).json();
+        layout.area = {
+          kind: 'province',
+          code: d.matinh,
+          name: d.tentinh,
+          matinh: d.matinh,
+          tentinh: d.tentinh,
+          bbox: d.bbox
+        };
+        layout.stats = { ...d.stats };
+        layout.title = `BẢN ĐỒ TÌM KIẾM, QUY TẬP HÀI CỐT LIỆT SĨ ${provinceLabel(d.tentinh)}`;
+      } else {
+        layout.area = null;
+        layout.stats = emptyStats();
+        layout.title = 'BẢN ĐỒ TÌM KIẾM, QUY TẬP HÀI CỐT LIỆT SĨ - TOÀN VÙNG';
+      }
     } catch (e) {
-      errorMsg = `Không nạp được xã: ${e}`;
+      errorMsg = `Không nạp được vùng in: ${e}`;
     }
   }
 
@@ -145,8 +179,9 @@
     errorMsg = '';
     busy = mode;
     try {
+      // Độ phân giải lấy theo layout.dpiScale (chọn trên thanh công cụ).
       if (mode === 'client') await exportClient(layout);
-      else await exportServer(layout, { deviceScaleFactor: 3 });
+      else await exportServer(layout);
     } catch (e) {
       errorMsg = String(e);
     } finally {
@@ -211,9 +246,21 @@
         </label>
         <label>
           Xã
-          <select bind:value={communeSel} onchange={onCommuneChange}>
+          <select bind:value={communeSel} onchange={updateArea}>
             <option value="">— toàn vùng —</option>
             {#each communes as c}<option value={c.maxa}>{c.tenxa}</option>{/each}
+          </select>
+        </label>
+        <label>
+          Bản đồ nền
+          <select bind:value={layout.basemap}>
+            {#each BASEMAPS as b}<option value={b.id}>{b.label}</option>{/each}
+          </select>
+        </label>
+        <label>
+          Độ phân giải
+          <select bind:value={layout.dpiScale}>
+            {#each DPI_OPTIONS as d}<option value={d.scale}>{d.label}</option>{/each}
           </select>
         </label>
         <label class="chk">

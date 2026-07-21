@@ -54,7 +54,9 @@ function runWorker(payload: WorkerPayload): Promise<void> {
  */
 export async function renderPrint(req: PrintRequest): Promise<RenderResult> {
   const format = req.format ?? req.layout.format ?? 'pdf';
-  const scaleFactor = Math.min(Math.max(req.deviceScaleFactor ?? 3, 1), 4);
+  // Ưu tiên deviceScaleFactor của request; nếu thiếu thì lấy độ phân giải đã chọn
+  // trong bản vẽ (layout.dpiScale), cuối cùng mới về mặc định 3 (~288 DPI).
+  const scaleFactor = Math.min(Math.max(req.deviceScaleFactor ?? req.layout.dpiScale ?? 3, 1), 4);
   const spec = pageSpec(req.layout.paper ?? 'A1', req.layout.orientation ?? 'landscape');
 
   const cfg = Buffer.from(JSON.stringify(req.layout), 'utf8').toString('base64url');

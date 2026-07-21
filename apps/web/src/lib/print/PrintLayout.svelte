@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import maplibregl from 'maplibre-gl';
-  import type { Map as MlMap, GeoJSONSource } from 'maplibre-gl';
+  import type { Map as MlMap, GeoJSONSource, RasterTileSource } from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import './print.css';
-  import { pageSpec, type LayoutConfig } from '@printmap/shared';
+  import { BASEMAPS, pageSpec, type AreaRef, type BasemapId, type LayoutConfig } from '@printmap/shared';
   import { STYLE_URL, API_URL } from '$lib/config';
   import { ensurePmtilesProtocol } from '$lib/pmtiles';
   import { setMapZoomByScaleRatio } from './geo';
@@ -72,6 +72,42 @@
   const whenStyleLoaded = (m: MlMap) =>
     new Promise<void>((resolve) => (m.isStyleLoaded() ? resolve() : m.once('load', () => resolve())));
 
+  // ------- Bản đồ nền (đổi URL tiles của nguồn raster `nen_ban_do`) -------
+  const BASEMAP_LAYER = 'background-osm';
+  const BASEMAP_SOURCE = 'nen_ban_do';
+
+  function setBasemap(m: MlMap, id: BasemapId) {
+    if (!m.getLayer(BASEMAP_LAYER)) return;
+    const def = BASEMAPS.find((b) => b.id === id) ?? BASEMAPS[0];
+    if (!def.tiles) {
+      m.setLayoutProperty(BASEMAP_LAYER, 'visibility', 'none');
+      return;
+    }
+    m.setLayoutProperty(BASEMAP_LAYER, 'visibility', 'visible');
+    const src = m.getSource(BASEMAP_SOURCE) as RasterTileSource | undefined;
+    if (src?.setTiles) src.setTiles(def.tiles);
+  }
+
+  async function applyBasemap(m: MlMap, id: BasemapId) {
+    // Tăng `pending` NGAY (trước await) để render server-side không chụp sớm.
+    pending++;
+    try {
+      await whenStyleLoaded(m);
+      setBasemap(m, id);
+    } catch (err) {
+      console.warn('applyBasemap:', err);
+    } finally {
+      pending--;
+    }
+  }
+
+  $effect(() => {
+    const m = map;
+    const id = layout.basemap;
+    if (!m) return;
+    applyBasemap(m, id);
+  });
+
   function setMask(m: MlMap, geometry: GeoJSON.Geometry | null) {
     const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
     let data: GeoJSON.Feature | GeoJSON.FeatureCollection = empty;
@@ -115,25 +151,28 @@
     );
   }
 
-  async function applyCommune(m: MlMap, maxa: string | undefined) {
+  async function applyArea(m: MlMap, area: AreaRef | null) {
     pending++;
     try {
       await whenStyleLoaded(m);
-      if (!maxa) {
+      if (!area) {
+        // Toàn vùng: không che nền.
         setMask(m, null);
         return;
       }
-      const res = await fetch(`${API_URL}/api/admin/commune/${maxa}`);
+      // Xã -> /commune/:maxa; Tỉnh -> /province/:matinh. Cả hai trả feature + bbox.
+      const path = area.kind === 'province' ? `province/${area.code}` : `commune/${area.code}`;
+      const res = await fetch(`${API_URL}/api/admin/${path}`);
       if (!res.ok) return;
       const data = await res.json();
       setMask(m, data.feature?.geometry ?? null);
       if (data.bbox) {
         m.fitBounds(data.bbox as [number, number, number, number], { padding: 12, duration: 0 });
-        // Giữ tâm xã nhưng áp đúng tỉ lệ nếu người dùng chọn tỉ lệ cố định.
+        // Giữ tâm vùng nhưng áp đúng tỉ lệ nếu người dùng chọn tỉ lệ cố định.
         if (layout.scaleMode === 'fixed') setMapZoomByScaleRatio(m, layout.scaleRatio);
       }
     } catch (err) {
-      console.warn('applyCommune:', err);
+      console.warn('applyArea:', err);
     } finally {
       pending--;
     }
@@ -141,9 +180,9 @@
 
   $effect(() => {
     const m = map;
-    const maxa = layout.commune?.maxa;
+    const area = layout.area;
     if (!m) return;
-    applyCommune(m, maxa);
+    applyArea(m, area);
   });
 
   /** Áp dụng tỉ lệ 1:N do người dùng chọn/nhập. */

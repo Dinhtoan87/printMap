@@ -4,6 +4,11 @@ import type { LayoutConfig, PrintRequest } from '@printmap/shared';
 import { pageSpec } from '@printmap/shared';
 import { API_URL } from '$lib/config';
 
+/** Giới hạn độ phân giải trong khoảng hợp lệ (1–4) như server. */
+function clampScale(scale: number | undefined): number {
+  return Math.min(Math.max(Number(scale) || 2, 1), 4);
+}
+
 function download(url: string, filename: string) {
   const a = document.createElement('a');
   a.href = url;
@@ -17,12 +22,13 @@ function download(url: string, filename: string) {
  * Xuất nhanh phía client: chụp #a0-print-zone -> PNG; nếu format=pdf thì nhúng
  * vào jsPDF đúng khổ giấy đã chọn.
  */
-export async function exportClient(layout: LayoutConfig, pixelRatio = 2): Promise<void> {
+export async function exportClient(layout: LayoutConfig, pixelRatio?: number): Promise<void> {
   const printZone = document.getElementById('a0-print-zone');
   if (!printZone) throw new Error('Không tìm thấy #a0-print-zone');
 
+  const ratio = clampScale(pixelRatio ?? layout.dpiScale);
   const spec = pageSpec(layout.paper, layout.orientation);
-  const dataUrl = await htmlToImage.toPng(printZone, { pixelRatio, cacheBust: true });
+  const dataUrl = await htmlToImage.toPng(printZone, { pixelRatio: ratio, cacheBust: true });
   const base = `bando_${layout.paper}_${spec.wMm}x${spec.hMm}`;
 
   if (layout.format === 'png') {
@@ -50,7 +56,7 @@ export async function exportServer(
   const req: PrintRequest = {
     layout,
     format: layout.format,
-    deviceScaleFactor: opts.deviceScaleFactor ?? 3
+    deviceScaleFactor: clampScale(opts.deviceScaleFactor ?? layout.dpiScale)
   };
 
   const res = await fetch(`${API_URL}/api/print`, {

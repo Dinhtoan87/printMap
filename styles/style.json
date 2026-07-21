@@ -11,67 +11,74 @@
       "maxzoom": 19,
       "attribution": "© OpenStreetMap contributors"
     },
-    "diaphanhanchinhcaphuyen": {
+    "tinh": {
       "type": "vector",
-      "tiles": ["__MARTIN__/diaphanhanchinhcaphuyen/{z}/{x}/{y}"],
+      "tiles": ["__MARTIN__/tinh/{z}/{x}/{y}"],
       "minzoom": 0,
       "maxzoom": 20
     },
-    "diaphanhanhchinhcapxa": {
+    "xa": {
       "type": "vector",
-      "tiles": ["__MARTIN__/diaphanhanhchinhcapxa/{z}/{x}/{y}"],
+      "tiles": ["__MARTIN__/xa/{z}/{x}/{y}"],
       "minzoom": 0,
       "maxzoom": 20
     },
     "duongdiagioihanhchinh": {
+      "type": "geojson",
+      "data": "__API__/data/sample/DuongDiaGioiHanhChinh.geojson"
+    },
+    "DuongBienGioiQuocGiaTrenDatLien": {
+      "type": "geojson",
+      "data": "__API__/data/sample/DuongBienGioiQuocGiaTrenDatLien.geojson"
+    },
+    "vung_tim_kiem": {
       "type": "vector",
-      "tiles": ["__MARTIN__/duongdiagioihanhchinh/{z}/{x}/{y}"],
+      "tiles": ["__MARTIN__/vung_tim_kiem/{z}/{x}/{y}"],
       "minzoom": 0,
       "maxzoom": 20
     },
-    "hientrangkhuvuctkqthclsa": {
+    "nghiatrang": {
       "type": "vector",
-      "tiles": ["__MARTIN__/hientrangkhuvuctkqthclsa/{z}/{x}/{y}"],
+      "tiles": ["__MARTIN__/nghia_trang/{z}/{x}/{y}"],
       "minzoom": 0,
       "maxzoom": 20
     },
-    "nghiatrangdiaphuonga": {
-      "type": "vector",
-      "tiles": ["__MARTIN__/nghiatrangdiaphuonga/{z}/{x}/{y}"],
-      "minzoom": 0,
-      "maxzoom": 20
-    },
-    "nghiatranglietsia": {
-      "type": "vector",
-      "tiles": ["__MARTIN__/nghiatranglietsia/{z}/{x}/{y}"],
-      "minzoom": 0,
-      "maxzoom": 20
-    },
-
     "gj_momoiphathien": {
       "type": "geojson",
-      "data": "__API__/api/admin/geojson/momoiphathien",
+      "data": "__API__/api/admin/geojson/mo_liet_sy",
+      "filter": ["all", ["==", ["get", "moi_phat_hien"], "true"]],
       "cluster": true,
       "clusterRadius": 36,
       "clusterMaxZoom": 16
     },
     "gj_mogiadinh": {
       "type": "geojson",
-      "data": "__API__/api/admin/geojson/molietsidogiadinhchamsocquanly",
+      "data": "__API__/api/admin/geojson/mo_liet_sy",
+      "filter": ["all", ["==", ["get", "moi_phat_hien"], "false"]],
       "cluster": true,
       "clusterRadius": 44,
       "clusterMaxZoom": 16
     },
     "gj_ntls": {
       "type": "geojson",
-      "data": "__API__/api/admin/geojson/nghiatranglietsip",
+      "data": "__API__/api/admin/geojson/nghiatrang",
+      "filter": [
+        "all",
+        ["==", ["geometry-type"], "Polygon"],
+        ["==", ["get", "nghia_trang_ls"], true]
+      ],
       "cluster": true,
       "clusterRadius": 36,
       "clusterMaxZoom": 16
     },
     "gj_ntdp": {
       "type": "geojson",
-      "data": "__API__/api/admin/geojson/nghiatrangdiaphuongp",
+      "data": "__API__/api/admin/geojson/nghiatrang",
+      "filter": [
+        "all",
+        ["==", ["geometry-type"], "Point"],
+        ["==", ["get", "nghia_trang_ls"], false]
+      ],
       "cluster": true,
       "clusterRadius": 36,
       "clusterMaxZoom": 16
@@ -83,75 +90,115 @@
       "type": "raster",
       "source": "nen_ban_do"
     },
-
     {
       "id": "fill-hientrang-tkqt",
       "type": "fill",
-      "source": "hientrangkhuvuctkqthclsa",
-      "source-layer": "hientrangkhuvuctkqthclsa",
+      "source": "vung_tim_kiem",
+      "source-layer": "vung_tim_kiem",
       "paint": {
         "fill-antialias": true,
         "fill-opacity": 0.5,
         "fill-color": [
           "match",
-          ["get", "hiện trạng tìm kiếm"],
-          "Khu vực, địa bàn có mộ liệt sĩ đã tìm kiếm, quy tập xong", "#ffffff",
-          "Khu vực địa bàn có thông tin mộ liệt sĩ, đã tìm kiếm, quy tập nhưng chưa hết cần tiếp tục tìm kiếm, quy tập", "#ffff99",
-          "Khu vực, địa bàn có thông tin mộ liệt sĩ nhưng chưa tổ chức tìm kiếm, quy tập", "#ccff99",
-          "Khu vực, địa bàn có thông tin mộ liệt sĩ đã tìm kiếm quy tập nhưng chưa có kết quả", "#ffb3b3",
+          ["get", "hien_trang_tim_kiem"],
+          "1", "#ffffff",
+          "2", "#ffff99",
+          "3", "#ccff99",
+          "4", "#ffb3b3",
           "#c6d9f1"
         ]
       }
     },
     {
-      "id": "line-hientrang-tkqt",
-      "type": "line",
-      "source": "hientrangkhuvuctkqthclsa",
-      "source-layer": "hientrangkhuvuctkqthclsa",
-      "paint": { "line-color": "#5a5a5a", "line-width": 0.8 }
-    },
-    {
       "id": "fill-nghiatrang-diaphuong",
       "type": "fill",
-      "source": "nghiatrangdiaphuonga",
-      "source-layer": "nghiatrangdiaphuonga",
+      "source": "nghiatrang",
+      "source-layer": "nghia_trang",
+      "filter": [
+        "all",
+        ["==", ["geometry-type"], "Polygon"],
+        ["==", ["get", "nghia_trang_ls"], false]
+      ],
       "paint": { "fill-color": "#cfd8dc", "fill-opacity": 0.55, "fill-outline-color": "#455a64" }
     },
     {
       "id": "fill-nghiatrang-lietsi",
       "type": "fill",
-      "source": "nghiatranglietsia",
-      "source-layer": "nghiatranglietsia",
+      "source": "nghiatrang",
+      "source-layer": "nghia_trang",
+      "filter": [
+        "all",
+        ["==", ["geometry-type"], "Polygon"],
+        ["==", ["get", "nghia_trang_ls"], true]
+      ],
       "paint": { "fill-color": "#ffcdd2", "fill-opacity": 0.65, "fill-outline-color": "#c62828" }
     },
-
     {
       "id": "line-diagioi-phaply",
       "type": "line",
       "source": "duongdiagioihanhchinh",
-      "source-layer": "duongdiagioihanhchinh",
       "paint": { "line-color": "#000000", "line-width": 0.6, "line-opacity": 0.45 }
     },
     {
-      "id": "line-ranh-huyen",
+      "id": "line-ranh-tinh",
       "type": "line",
-      "source": "diaphanhanchinhcaphuyen",
-      "source-layer": "diaphanhanchinhcaphuyen",
+      "source": "duongdiagioihanhchinh",
+      "filter": [
+        "==",
+        ["get", "Đối tượng"],
+        "Đường địa giới hành chính cấp tỉnh"
+      ],
       "paint": { "line-color": "#000000", "line-width": 2.2, "line-dasharray": [5, 2, 1, 2] }
     },
     {
       "id": "line-ranh-xa",
       "type": "line",
-      "source": "diaphanhanhchinhcapxa",
-      "source-layer": "diaphanhanhchinhcapxa",
+      "source": "duongdiagioihanhchinh",
+      "filter": [
+        "==",
+        ["get", "Đối tượng"],
+        "Đường địa giới hành chính cấp xã"
+      ],
       "paint": { "line-color": "#ff00ff", "line-width": 1.3, "line-dasharray": [4, 2] }
     },
-
+    {
+      "id": "line-ranh-biengioi-quocgia-casing",
+      "type": "line",
+      "source": "DuongBienGioiQuocGiaTrenDatLien",
+      "paint": {
+        "line-color": "#ffffff",
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          4, 2.5,
+          12, 5
+        ],
+        "line-opacity": 0.8
+      }
+    },
+    {
+      "id": "line-ranh-biengioi-quocgia",
+      "type": "line",
+      "source": "DuongBienGioiQuocGiaTrenDatLien",
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#1a1a1a",
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          4, 1.2,
+          8, 2,
+          14, 3.5
+        ],
+        "line-dasharray": [6, 2, 1, 2]
+      }
+    },
     {
       "id": "label-xa",
       "type": "symbol",
-      "source": "diaphanhanhchinhcapxa",
-      "source-layer": "diaphanhanhchinhcapxa",
+      "source": "xa",
+      "source-layer": "xa",
       "minzoom": 10,
       "layout": {
         "text-field": ["coalesce", ["get", "ten"], ""],
@@ -163,10 +210,10 @@
       "paint": { "text-color": "#4a148c", "text-halo-color": "#ffffff", "text-halo-width": 1.6 }
     },
     {
-      "id": "label-huyen",
+      "id": "label-tinh",
       "type": "symbol",
-      "source": "diaphanhanchinhcaphuyen",
-      "source-layer": "diaphanhanchinhcaphuyen",
+      "source": "tinh",
+      "source-layer": "tinh",
       "minzoom": 8,
       "layout": {
         "text-field": ["coalesce", ["get", "ten"], ""],
@@ -179,7 +226,6 @@
       },
       "paint": { "text-color": "#000000", "text-halo-color": "#ffffff", "text-halo-width": 2 }
     },
-
     {
       "id": "ntdp-cluster",
       "type": "symbol",
@@ -204,7 +250,6 @@
       "filter": ["!", ["has", "point_count"]],
       "layout": { "icon-image": "grave-black", "icon-size": 0.9, "icon-allow-overlap": true }
     },
-
     {
       "id": "ntls-cluster",
       "type": "symbol",
@@ -229,7 +274,6 @@
       "filter": ["!", ["has", "point_count"]],
       "layout": { "icon-image": "ntls", "icon-size": 0.9, "icon-allow-overlap": true }
     },
-
     {
       "id": "mogiadinh-cluster",
       "type": "symbol",
@@ -254,7 +298,6 @@
       "filter": ["!", ["has", "point_count"]],
       "layout": { "icon-image": "grave-green", "icon-size": 0.95, "icon-allow-overlap": true }
     },
-
     {
       "id": "momoi-cluster",
       "type": "symbol",
