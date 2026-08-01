@@ -120,7 +120,43 @@ Style dùng qua `icon-image` (match theo `trangthai`/`loai`). Đổi mapping tro
 
 `apps/api/.env`: `PORT`, `PUBLIC_API_URL`, `WEB_URL`, `PLAYWRIGHT_CHROMIUM`,
 `MARTIN_URL`, `DATABASE_URL` (xem `.env.example`).
-`apps/web/.env`: `PUBLIC_API_URL`, `PUBLIC_STYLE_NAME` (`style.sample` demo / `style` thật).
+`apps/web/.env`: `PUBLIC_API_URL`, `PUBLIC_STYLE_NAME` (`style.sample` demo / `style` thật),
+`PUBLIC_LOGIN_URL` (link đăng nhập hiện khi hết phiên).
+
+## 5b. Đăng nhập — dùng lại phiên của server A (better-auth)
+
+Server in **không có trang đăng nhập**. Người dùng đăng nhập ở **server A** (frontend,
+better-auth); server in chỉ **verify** phiên đó rồi mới cho đọc dữ liệu và in.
+
+Điều kiện bắt buộc trong `apps/api/.env`:
+
+| Biến | Ý nghĩa |
+|---|---|
+| `DATABASE_URL` | Trỏ ĐÚNG CSDL server A dùng (phải có bảng `session`, `user`) |
+| `BETTER_AUTH_SECRET` | **Giống hệt** server A — sai một ký tự là mọi request 401 |
+| `BETTER_AUTH_URL` | URL better-auth của server A (dùng làm baseURL + link đăng nhập trong lỗi 401) |
+| `CORS_ORIGINS` | Origin được gọi API kèm cookie, ví dụ `http://print.samcom.net:5173` |
+| `AUTH_REQUIRED` | `false` để tắt kiểm tra khi dev cục bộ (mặc định `true`) |
+
+Cách phiên đi tới server in:
+
+1. **Cookie** — trình duyệt tự gửi khi web gọi API với `credentials: 'include'`
+   (`apiFetch()` trong `apps/web/src/lib/api.ts` và `transformRequest` của MapLibre đã bật sẵn).
+   Cookie chỉ qua được nếu web và API **cùng site** (ví dụ `*.samcom.net`) — nếu server A đặt
+   cookie theo `crossSubDomainCookies`/domain `.samcom.net`.
+2. **`Authorization: Bearer <session_token>`** — dùng khi khác domain hoặc gọi từ máy chủ/script.
+   Token chính là giá trị header `set-auth-token` better-auth trả về lúc đăng nhập.
+
+Route được bảo vệ trả:
+
+- `401` — chưa đăng nhập / phiên hết hạn (kèm `loginUrl`) → giao diện hiện banner mời đăng nhập.
+- `503` — server in chưa verify được (thiếu `DATABASE_URL`/`BETTER_AUTH_SECRET`, hoặc CSDL lỗi).
+
+`GET /api/me` luôn trả `200` (`{authenticated, user, loginUrl}`) để giao diện tự biết trạng thái.
+
+Khi in ở máy chủ, `POST /api/print` **chuyển tiếp cookie/bearer của chính người yêu cầu**
+sang trình duyệt headless (chỉ tới origin của WEB_URL và PUBLIC_API_URL, không rò sang
+tile bên thứ ba) — nếu không, trang `/print` sẽ bị chặn 401 và bản in ra trắng dữ liệu.
 
 ## 6. Kiến trúc in
 
@@ -135,13 +171,18 @@ Style dùng qua `icon-image` (match theo `trangthai`/`loai`). Đổi mapping tro
 
 ## 7. API tóm tắt
 
+🔒 = bắt buộc đã đăng nhập ở server A (xem mục 5b).
+
 | Method | Endpoint | Mô tả |
 |---|---|---|
 | GET | `/styles/:name` | Style (đã thay `__API__`, `__MARTIN__`) |
 | GET | `/tiles/:file` | `.pmtiles` (HTTP Range 206) |
 | GET | `/mbtiles/:name/:z/:x/:y` | Tile từ `.mbtiles` (nền raster) |
 | GET | `/glyphs/…` · `/sprite/…` | Font PBF · sprite ký hiệu |
-| GET | `/api/admin/provinces` | Danh sách tỉnh |
-| GET | `/api/admin/communes?matinh=` | Danh sách xã theo tỉnh |
-| GET | `/api/admin/commune/:maxa` | Ranh giới + bbox + số liệu một xã |
-| POST | `/api/print` | `{layout, format?, deviceScaleFactor?}` → PDF/PNG |
+| GET | `/api/me` | Trạng thái đăng nhập (luôn 200) |
+| GET 🔒 | `/api/admin/provinces` | Danh sách tỉnh |
+| GET 🔒 | `/api/admin/communes?matinh=` | Danh sách xã theo tỉnh |
+| GET 🔒 | `/api/admin/commune/:maxa` | Ranh giới + bbox + số liệu một xã |
+| GET 🔒 | `/api/admin/province/:matinh` | Ranh giới + bbox + số liệu một tỉnh |
+| GET 🔒 | `/api/admin/geojson/:layer` | Lớp điểm để gom cụm (`?ma_xa=`/`?ma_tinh=`) |
+| POST 🔒 | `/api/print` | `{layout, format?, deviceScaleFactor?}` → PDF/PNG |

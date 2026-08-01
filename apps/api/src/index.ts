@@ -8,6 +8,7 @@ import { adminRoutes } from './admin/index.ts';
 import { mbtilesRoutes } from './mbtiles.ts';
 import type { PrintRequest } from '@printmap/shared';
 import { swagger } from '@elysiajs/swagger';
+import { authGuard, checkSession, forwardAuthHeaders } from './lib/auth-guard.ts';
 
 /** Đọc style JSON, thay __API__ -> URL API và __MARTIN__ -> URL Martin. */
 function readStyle(name: string): unknown | null {
@@ -21,7 +22,18 @@ function readStyle(name: string): unknown | null {
 }
 
 const app = new Elysia()
-  .use(cors())
+  .use(cors(
+    {
+      /**
+       * Cookie phiên chỉ được gửi kèm khi CORS cho phép credentials. Liệt kê rõ origin của
+       * server A qua CORS_ORIGINS khi chạy thật; bỏ trống -> phản chiếu origin gọi tới (dev).
+       */
+      origin: config.corsOrigins.length ? config.corsOrigins : true,
+      credentials: true,               // BẮT BUỘC: để trình duyệt gửi cookie sang server in
+      allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+      exposeHeaders: ['Content-Disposition', 'set-auth-token']
+    }
+  ))
   .use(
     swagger({
       provider: 'swagger-ui',
@@ -35,12 +47,14 @@ const app = new Elysia()
       }
     })
   )
+  .use(authGuard)
   .use(adminRoutes)
   .use(mbtilesRoutes)
 
   .get('/', () => ({
     name: 'printmap-api',
     ok: true,
+    /** Các endpoint đánh dấu 🔒 bắt buộc đã đăng nhập ở server A (cookie better-auth hoặc Bearer). */
     endpoints: [
       '/styles/:name',
       '/tiles/:file',
@@ -48,12 +62,35 @@ const app = new Elysia()
       '/glyphs/:fontstack/:range',
       '/sprite/:file',
       '/data/sample/:file',
-      '/api/admin/provinces',
-      '/api/admin/communes?matinh=',
-      '/api/admin/commune/:maxa',
-      'POST /api/print'
+      'GET /api/me',
+      '🔒 /api/admin/provinces',
+      '🔒 /api/admin/communes?matinh=',
+      '🔒 /api/admin/commune/:maxa',
+      '🔒 /api/admin/province/:matinh',
+      '🔒 /api/admin/geojson/:layer',
+      '🔒 POST /api/print'
     ]
   }))
+
+  /**
+   * Trạng thái đăng nhập — KHÔNG chặn (luôn 200) để giao diện tự quyết định hiển thị
+   * banner "cần đăng nhập" hay cho in. Client gọi kèm `credentials: 'include'`.
+   */
+  .get('/api/me', async ({ request }) => {
+    if (!config.auth.required) {
+      return { authenticated: true, authDisabled: true, user: null };
+    }
+    const check = await checkSession(request.headers);
+    if (check.ok) {
+      const { id, email, name, image } = check.user;
+      return { authenticated: true, user: { id, email, name, image } };
+    }
+    return {
+      authenticated: false,
+      reason: check.reason,
+      loginUrl: config.auth.baseUrl || undefined
+    };
+  })
 
   // --- MapLibre style (chèn __API__) ---
   .get('/styles/:name', ({ params, set }) => {
@@ -96,21 +133,25 @@ const app = new Elysia()
     return serveFileWithRange(repoPath('data', 'sample', safe), request.headers.get('range'));
   })
 
-  // --- Render in server-side độ phân giải cao ---
-  .post('/api/print', async ({ body, set }) => {
+  // --- Render in server-side độ phân giải cao (CHỈ khi đã đăng nhập) ---
+  .post('/api/print', async ({ body, set, request, user }) => {
     try {
       const req = body as PrintRequest;
       if (!req?.layout) {
         set.status = 400;
         return { error: 'missing layout' };
       }
-      const { buffer, contentType, filename } = await renderPrint(req);
+      console.log('[print] yêu cầu in từ:', user ? (user.email ?? user.id) : '(auth đang tắt)');
+      // Trình duyệt headless mở trang /print rồi tự gọi lại API này -> phải mang theo
+      // phiên của chính người dùng, nếu không các lớp dữ liệu sẽ bị chặn 401 và bản in trống.
+      const { buffer, contentType, filename } = await renderPrint(req, forwardAuthHeaders(request.headers));
       // Cast: Buffer chạy được với Response của Bun, chỉ lệch type do @types/node (typed-array generic).
+      // Không đặt Access-Control-Allow-Origin: '*' — response này đi kèm cookie phiên,
+      // header CORS do plugin cors phía trên xử lý theo đúng origin được phép.
       return new Response(buffer as unknown as BodyInit, {
         headers: {
           'Content-Type': contentType,
-          'Content-Disposition': `attachment; filename="${filename}"`,
-          'Access-Control-Allow-Origin': '*'
+          'Content-Disposition': `attachment; filename="${filename}"`
         }
       });
     } catch (err) {
@@ -118,6 +159,8 @@ const app = new Elysia()
       set.status = 500;
       return { error: 'render failed', detail: String(err) };
     }
+  }, {
+    requireAuth: true // <-- chỉ người đã đăng nhập ở server A mới in được
   })
 
   .listen(config.port);

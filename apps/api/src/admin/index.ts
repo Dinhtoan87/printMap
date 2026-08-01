@@ -2,7 +2,7 @@ import { Elysia } from 'elysia';
 import { existsSync, readFileSync } from 'node:fs';
 import type { CommuneStats } from '@printmap/shared';
 import { config, repoPath } from '../config.ts';
-
+import { authGuard } from '../lib/auth-guard.ts';
 /**
  * API hành chính: danh sách tỉnh/xã + chi tiết một xã (ranh giới, bbox, số liệu quy tập).
  *
@@ -162,39 +162,142 @@ const statsFromProps = (p: Record<string, unknown>): CommuneStats => ({
  * yêu cầu; giá trị = tên bảng thật trong PostGIS. Hình học được tách bằng ST_Dump rồi
  * ép về ĐIỂM (ST_PointOnSurface) để nghĩa trang dạng vùng vẫn gom cụm/hiển thị được.
  */
+// const GEOJSON_LAYERS: Record<string, string> = {
+//   mo_liet_sy: 'mo_liet_sy',
+//   nghiatrang: 'nghia_trang'
+// };
+// Định nghĩa danh sách các Layer được phép gọi.
+// Key: Tham số truyền trên URL (/api/admin/geojson/mo_liet_sy)
+// Value: Tên Bảng hoặc View thực tế trong PostgreSQL
 const GEOJSON_LAYERS: Record<string, string> = {
-  mo_liet_sy: 'mo_liet_sy',
-  nghiatrang: 'nghia_trang'
+  // Những layer cần giấu cột nhạy cảm -> Trỏ tới VIEW
+  mo_liet_sy: 'v_mo_liet_sy',
+  nghia_trang: 'v_nghia_trang',
+
+  // Những layer an toàn không có dữ liệu nhạy cảm -> Có thể trỏ trực tiếp tới TABLE gốc
+  ranh_gioi_xa: 'ranh_gioi_xa'
 };
 
+/**
+ * Cache tên cột của mỗi bảng/view để lọc geojson theo xã/tỉnh AN TOÀN: chỉ thêm điều
+ * kiện WHERE khi cột thật sự tồn tại (tránh lỗi SQL làm rỗng cả lớp nếu view thiếu cột).
+ */
+const columnsCache = new Map<string, Set<string>>();
+async function tableColumns(db: import('pg').Pool, tableNameOrView: string): Promise<Set<string>> {
+  const cached = columnsCache.get(tableNameOrView);
+  if (cached) return cached;
+  try {
+    const r = await db.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = $1`,
+      [tableNameOrView]
+    );
+    const set = new Set(r.rows.map((x) => String(x.column_name)));
+    columnsCache.set(tableNameOrView, set);
+    return set;
+  } catch (err) {
+    console.warn('[geojson] không đọc được cột của', tableNameOrView, String(err));
+    return new Set();
+  }
+}
+
+/** Chọn tên cột mã theo cấp (xã/tỉnh), chấp nhận cả biến thể có/không dấu gạch dưới. */
+function pickAreaColumn(cols: Set<string>, kind: 'xa' | 'tinh'): string | null {
+  const candidates = kind === 'xa' ? ['ma_xa', 'maxa'] : ['ma_tinh', 'matinh'];
+  return candidates.find((c) => cols.has(c)) ?? null;
+}
 // ---------- Routes ----------
-export const adminRoutes = new Elysia({ prefix: '/api/admin' })
-  .get('/geojson/:layer', async ({ params, set }) => {
-    const table = GEOJSON_LAYERS[params.layer];
-    if (!table) {
+// export const adminRoutes = new Elysia({ prefix: '/api/admin' })
+  // .get('/geojson/:layer', async ({ params, set }) => {
+  //   const table = GEOJSON_LAYERS[params.layer];
+  //   if (!table) {
+  //     set.status = 404;
+  //     return { error: 'layer not allowed' };
+  //   }
+  //   const empty = { type: 'FeatureCollection', features: [] as unknown[] };
+  //   const db = await getPool();
+  //   if (!db) return empty;
+  //   try {
+  //     const r = await db.query(
+  //       `SELECT ST_AsGeoJSON(ST_PointOnSurface((ST_Dump(geom)).geom)) AS g
+  //          FROM ${table} WHERE geom IS NOT NULL`
+  //     );
+  //     set.headers['Cache-Control'] = 'public, max-age=60';
+  //     return {
+  //       type: 'FeatureCollection',
+  //       features: r.rows.map((row) => ({
+  //         type: 'Feature',
+  //         properties: {},
+  //         geometry: JSON.parse(row.g as string)
+  //       }))
+  //     };
+  //   } catch (err) {
+  //     console.warn('[geojson]', table, String(err));
+  //     return empty;
+  //   }
+  // })
+  /**
+   * TẤT CẢ route dữ liệu hành chính đều yêu cầu đăng nhập: phiên do server A (better-auth)
+   * cấp, server in chỉ verify qua CSDL dùng chung (xem lib/auth-guard.ts).
+   */
+  export const adminRoutes = new Elysia({ prefix: '/api/admin' })
+  .use(authGuard)
+  .guard({ requireAuth: true }, (app) =>
+    app
+  .get('/geojson/:layer', async ({ params, query, set }) => {
+    const tableNameOrView = GEOJSON_LAYERS[params.layer];
+    if (!tableNameOrView) {
       set.status = 404;
-      return { error: 'layer not allowed' };
+      return { error: 'Layer not allowed' };
     }
-    const empty = { type: 'FeatureCollection', features: [] as unknown[] };
+
+    const emptyGeoJSON = { type: 'FeatureCollection', features: [] };
     const db = await getPool();
-    if (!db) return empty;
+    if (!db) return emptyGeoJSON;
+
+    // Lọc theo vùng in: ?ma_xa= (ưu tiên) hoặc ?ma_tinh=. Chỉ áp dụng khi cột tồn tại
+    // trong view/bảng -> giới hạn các đối tượng trả về đúng khu vực được chọn.
+    const maxa = typeof query.ma_xa === 'string' ? query.ma_xa.trim() : '';
+    const matinh = typeof query.ma_tinh === 'string' ? query.ma_tinh.trim() : '';
+    const where: string[] = ['t.geom IS NOT NULL'];
+    const args: unknown[] = [];
+    if (maxa || matinh) {
+      const cols = await tableColumns(db, tableNameOrView);
+      const col = maxa ? pickAreaColumn(cols, 'xa') : pickAreaColumn(cols, 'tinh');
+      if (col) {
+        args.push(maxa || matinh);
+        where.push(`t."${col}"::text = $${args.length}`);
+      } else {
+        console.warn(`[geojson] ${tableNameOrView} không có cột mã ${maxa ? 'xã' : 'tỉnh'} -> bỏ qua lọc`);
+      }
+    }
+
     try {
       const r = await db.query(
-        `SELECT ST_AsGeoJSON(ST_PointOnSurface((ST_Dump(geom)).geom)) AS g
-           FROM ${table} WHERE geom IS NOT NULL`
+        `SELECT json_build_object(
+           'type', 'FeatureCollection',
+           'features', COALESCE(
+             json_agg(
+               json_build_object(
+                 'type', 'Feature',
+                 'geometry', ST_AsGeoJSON(ST_PointOnSurface(t.geom))::json,
+                 'properties', to_jsonb(t.*) - 'geom'
+               )
+             ),
+             '[]'::json
+           )
+         ) AS geojson
+         FROM ${tableNameOrView} t
+         WHERE ${where.join(' AND ')}`,
+        args
       );
-      set.headers['Cache-Control'] = 'public, max-age=60';
-      return {
-        type: 'FeatureCollection',
-        features: r.rows.map((row) => ({
-          type: 'Feature',
-          properties: {},
-          geometry: JSON.parse(row.g as string)
-        }))
-      };
+
+      // Có tham số lọc -> phụ thuộc vùng đang chọn, không cache dùng chung.
+      set.headers['Cache-Control'] = maxa || matinh ? 'no-cache' : 'public, max-age=60';
+      return r.rows[0]?.geojson || emptyGeoJSON;
+
     } catch (err) {
-      console.warn('[geojson]', table, String(err));
-      return empty;
+      console.warn('[geojson-api-error]', tableNameOrView, String(err));
+      return emptyGeoJSON;
     }
   })
   .get('/provinces', async () => {
@@ -257,7 +360,9 @@ export const adminRoutes = new Elysia({ prefix: '/api/admin' })
                 "${COLS.chuaQuyTap}" AS chua_quy_tap,
                 "${COLS.giaDinhQuanLy}" AS gia_dinh_quan_ly,
                 "${COLS.tuNoiKhacVe}" AS tu_noi_khac_ve,
-                ST_AsGeoJSON("${COLS.geom}")::json AS geometry
+                ST_AsGeoJSON(CASE WHEN ST_SRID("${COLS.geom}") NOT IN (0, 4326)
+                                  THEN ST_Transform("${COLS.geom}", 4326)
+                                  ELSE "${COLS.geom}" END)::json AS geometry
            FROM ${CAPXA}
           WHERE "${COLS.maxa}"=$1
           LIMIT 1`,
@@ -330,7 +435,9 @@ export const adminRoutes = new Elysia({ prefix: '/api/admin' })
                 "${COLS.chuaQuyTap}"    AS chua_quy_tap,
                 "${COLS.giaDinhQuanLy}" AS gia_dinh_quan_ly,
                 "${COLS.tuNoiKhacVe}"   AS tu_noi_khac_ve,
-                ST_AsGeoJSON("${COLS.geom}")::json AS geometry
+                ST_AsGeoJSON(CASE WHEN ST_SRID("${COLS.geom}") NOT IN (0, 4326)
+                                  THEN ST_Transform("${COLS.geom}", 4326)
+                                  ELSE "${COLS.geom}" END)::json AS geometry
            FROM ${CAPTINH} WHERE "${HT.matinh}"=$1 LIMIT 1`,
         [matinh]
       );
@@ -365,4 +472,5 @@ export const adminRoutes = new Elysia({ prefix: '/api/admin' })
       stats: sumStats(feats.map((f) => statsFromProps(f.properties))),
       feature: { type: 'Feature', properties: {}, geometry }
     };
-  });
+  })
+);

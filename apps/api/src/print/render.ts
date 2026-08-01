@@ -24,6 +24,18 @@ interface WorkerPayload {
   heightMm: number;
   chromiumPath: string;
   outPath: string;
+  /** Cookie phiên (better-auth) của người yêu cầu in — nạp sẵn vào context trình duyệt. */
+  cookie: string;
+  /** `Authorization: Bearer …` dùng khi cookie không qua được domain. */
+  authorization: string;
+  /** Các origin được phép nhận cookie/bearer chuyển tiếp (web + API của chính hệ thống). */
+  origins: string[];
+}
+
+/** Thông tin phiên chuyển tiếp từ request /api/print sang trình duyệt headless. */
+export interface ForwardAuth {
+  cookie?: string;
+  authorization?: string;
 }
 
 /**
@@ -52,7 +64,7 @@ function runWorker(payload: WorkerPayload): Promise<void> {
  * - deviceScaleFactor nâng độ phân giải raster của canvas bản đồ.
  * - page.pdf giữ chữ/vector nét ở đúng khổ giấy.
  */
-export async function renderPrint(req: PrintRequest): Promise<RenderResult> {
+export async function renderPrint(req: PrintRequest, forward: ForwardAuth = {}): Promise<RenderResult> {
   const format = req.format ?? req.layout.format ?? 'pdf';
   // Ưu tiên deviceScaleFactor của request; nếu thiếu thì lấy độ phân giải đã chọn
   // trong bản vẽ (layout.dpiScale), cuối cùng mới về mặc định 3 (~288 DPI).
@@ -70,7 +82,11 @@ export async function renderPrint(req: PrintRequest): Promise<RenderResult> {
     widthMm: spec.wMm,
     heightMm: spec.hMm,
     chromiumPath: config.chromiumPath,
-    outPath
+    outPath,
+    cookie: forward.cookie ?? '',
+    authorization: forward.authorization ?? '',
+    // CHỈ gửi phiên tới web + API của hệ thống; tuyệt đối không rò sang máy chủ tile bên thứ ba.
+    origins: [...new Set([config.webUrl, config.publicApiUrl].filter(Boolean))]
   });
 
   const buffer = readFileSync(outPath);

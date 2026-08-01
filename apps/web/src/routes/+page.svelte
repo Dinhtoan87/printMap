@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
-  import { STYLE_URL, API_URL } from '$lib/config';
+  import { STYLE_URL, LOGIN_URL } from '$lib/config';
+  import { apiJson, fetchSession, ApiError, withCredentialsForApi } from '$lib/api';
   import { ensurePmtilesProtocol } from '$lib/pmtiles';
   import {
     defaultLayout,
@@ -21,11 +22,39 @@
   import { exportClient, exportServer } from '$lib/print/export';
 
   let layout = $state<LayoutConfig>(structuredClone(defaultLayout));
-
   let mainMapEl: HTMLDivElement;
-  let showModal = $state(false);
+  let showModal = $state(true);
   let busy = $state<'' | 'client' | 'server'>('');
   let errorMsg = $state('');
+
+  // --- Phiên đăng nhập (do server A cấp, server in chỉ verify) ---
+  let authed = $state(true); // lạc quan cho tới khi /api/me trả lời -> tránh nháy banner
+  let authMsg = $state('');
+  let loginUrl = $state(LOGIN_URL);
+
+  /** Chuyển lỗi API thành thông báo; riêng 401 thì bật banner mời đăng nhập lại. */
+  function reportError(e: unknown, prefix = '') {
+    if (e instanceof ApiError && e.unauthorized) {
+      authed = false;
+      authMsg = e.message;
+      if (e.loginUrl) loginUrl = e.loginUrl;
+      errorMsg = '';
+      return;
+    }
+    errorMsg = `${prefix}${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  async function refreshSession() {
+    const info = await fetchSession();
+    authed = info.authenticated;
+    if (info.loginUrl) loginUrl = info.loginUrl;
+    authMsg = info.authenticated
+      ? ''
+      : info.reason === 'unavailable'
+        ? 'Máy chủ in chưa kiểm tra được phiên đăng nhập. Vui lòng thử lại sau.'
+        : 'Bạn chưa đăng nhập (hoặc phiên đã hết hạn). Hãy đăng nhập rồi tải lại trang để xem dữ liệu và in.';
+    return info.authenticated;
+  }
 
   // --- Tỷ lệ ---
   let scaleSel = $state<string>('100000'); // giá trị select: số | 'zoom' | 'custom'
@@ -34,6 +63,17 @@
   // --- Tỉnh / Xã ---
   interface Province { matinh: string; tentinh: string }
   interface Commune { maxa: string; tenxa: string }
+  /** Chi tiết vùng in: /api/admin/province/:matinh (tỉnh) và /api/admin/commune/:maxa (thêm mã/tên xã). */
+  interface ProvinceDetail {
+    matinh: string;
+    tentinh: string;
+    bbox: [number, number, number, number];
+    stats: LayoutConfig['stats'];
+  }
+  interface CommuneDetail extends ProvinceDetail {
+    maxa: string;
+    tenxa: string;
+  }
   let provinces = $state<Province[]>([]);
   let communes = $state<Commune[]>([]);
   let provinceSel = $state('');
@@ -65,7 +105,7 @@
     computeScale();
     showModal = true;
   }
-
+  
   onMount(() => {
     ensurePmtilesProtocol();
     window.addEventListener('resize', computeScale);
@@ -73,7 +113,9 @@
       container: mainMapEl,
       style: STYLE_URL,
       center: layout.center,
-      zoom: layout.zoom
+      zoom: layout.zoom,
+      // Lớp dữ liệu trong style trỏ tới /api/admin/geojson/* (đã bảo vệ) -> phải gửi cookie phiên.
+      transformRequest: withCredentialsForApi
     });
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
     map.on('moveend', () => {
@@ -90,14 +132,16 @@
   });
 
   async function loadProvinces() {
+    // Chưa đăng nhập thì khỏi gọi tiếp — API sẽ chặn 401 và danh sách vẫn rỗng.
+    if (!(await refreshSession())) return;
     try {
-      provinces = await (await fetch(`${API_URL}/api/admin/provinces`)).json();
+      provinces = await apiJson<Province[]>('/api/admin/provinces');
       if (provinces.length === 1) {
         provinceSel = provinces[0].matinh;
         await loadCommunes();
       }
-    } catch {
-      /* API chưa chạy — bỏ qua */
+    } catch (e) {
+      reportError(e, 'Không nạp được danh sách tỉnh: ');
     }
   }
 
@@ -106,9 +150,11 @@
     communeSel = '';
     if (provinceSel) {
       try {
-        communes = await (await fetch(`${API_URL}/api/admin/communes?matinh=${provinceSel}`)).json();
-      } catch {
-        /* ignore */
+        communes = await apiJson<Commune[]>(
+          `/api/admin/communes?matinh=${encodeURIComponent(provinceSel)}`
+        );
+      } catch (e) {
+        reportError(e, 'Không nạp được danh sách xã: ');
       }
     }
     // Đổi tỉnh -> cập nhật lại vùng in (cấp tỉnh nếu đã chọn tỉnh, hoặc toàn vùng).
@@ -132,7 +178,7 @@
     errorMsg = '';
     try {
       if (communeSel) {
-        const d = await (await fetch(`${API_URL}/api/admin/commune/${communeSel}`)).json();
+        const d = await apiJson<CommuneDetail>(`/api/admin/commune/${encodeURIComponent(communeSel)}`);
         layout.area = {
           kind: 'commune',
           code: d.maxa,
@@ -144,8 +190,9 @@
         layout.stats = { ...d.stats };
         const prefix = /^(xã|phường|thị trấn)/i.test(d.tenxa) ? '' : 'XÃ ';
         layout.title = `BẢN ĐỒ TÌM KIẾM, QUY TẬP HÀI CỐT LIỆT SĨ ${prefix}${d.tenxa.toUpperCase()} - ${provinceLabel(d.tentinh)}`;
+        // Lọc bản đồ theo vùng do PrintLayout tự xử lý qua $effect trên layout.area.
       } else if (provinceSel) {
-        const d = await (await fetch(`${API_URL}/api/admin/province/${provinceSel}`)).json();
+        const d = await apiJson<ProvinceDetail>(`/api/admin/province/${encodeURIComponent(provinceSel)}`);
         layout.area = {
           kind: 'province',
           code: d.matinh,
@@ -156,13 +203,14 @@
         };
         layout.stats = { ...d.stats };
         layout.title = `BẢN ĐỒ TÌM KIẾM, QUY TẬP HÀI CỐT LIỆT SĨ ${provinceLabel(d.tentinh)}`;
+        // Lọc bản đồ theo vùng do PrintLayout tự xử lý qua $effect trên layout.area.
       } else {
         layout.area = null;
         layout.stats = emptyStats();
         layout.title = 'BẢN ĐỒ TÌM KIẾM, QUY TẬP HÀI CỐT LIỆT SĨ - TOÀN VÙNG';
       }
     } catch (e) {
-      errorMsg = `Không nạp được vùng in: ${e}`;
+      reportError(e, 'Không nạp được vùng in: ');
     }
   }
 
@@ -274,10 +322,20 @@
           style="width:{SHEET_W * printScale}px; height:{SHEET_H * printScale}px;"
         >
           <div class="print-scale-inner" style="transform: scale({printScale});">
-            <PrintLayout bind:this={printLayout} {layout} editable={true} scale={printScale} />
+            <PrintLayout bind:this={printLayout} bind:layout={layout} editable={true} scale={printScale} />
           </div>
         </div>
       {/key}
+
+      {#if !authed}
+        <div class="warn">
+          {authMsg}
+          {#if loginUrl}
+            <a href={loginUrl} target="_blank" rel="noreferrer">Đăng nhập</a>
+          {/if}
+          <button class="link" onclick={loadProvinces}>Thử lại</button>
+        </div>
+      {/if}
 
       {#if errorMsg}
         <div class="err">{errorMsg}</div>
@@ -288,7 +346,12 @@
         <button class="ok" onclick={() => doExport('client')} disabled={busy !== ''}>
           {busy === 'client' ? 'Đang tạo...' : `Xuất ${layout.format.toUpperCase()} nhanh (client)`}
         </button>
-        <button class="ok" onclick={() => doExport('server')} disabled={busy !== ''}>
+        <button
+          class="ok"
+          onclick={() => doExport('server')}
+          disabled={busy !== '' || !authed}
+          title={authed ? '' : 'Cần đăng nhập để in ở máy chủ'}
+        >
           {busy === 'server' ? 'Đang render DPI cao...' : `Xuất ${layout.format.toUpperCase()} chất lượng cao (server)`}
         </button>
       </div>
@@ -417,5 +480,34 @@
     border-radius: 4px;
     max-width: 800px;
     font-size: 10pt;
+  }
+  /* Cảnh báo chưa đăng nhập: dữ liệu và nút in ở máy chủ đều bị khoá cho tới khi có phiên. */
+  .warn {
+    color: #7a5200;
+    background: #fff4d6;
+    border: 1px solid #ffe08a;
+    padding: 8px 12px;
+    border-radius: 4px;
+    max-width: 800px;
+    font-size: 10pt;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .warn a {
+    color: #0056b3;
+    font-weight: bold;
+  }
+  button.link {
+    background: none;
+    color: #0056b3;
+    padding: 0;
+    text-decoration: underline;
+    font-size: 10pt;
+  }
+  button.link:hover {
+    background: none;
+    color: #003d80;
   }
 </style>

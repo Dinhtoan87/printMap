@@ -2,7 +2,7 @@ import * as htmlToImage from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import type { LayoutConfig, PrintRequest } from '@printmap/shared';
 import { pageSpec } from '@printmap/shared';
-import { API_URL } from '$lib/config';
+import { apiFetch } from '$lib/api';
 
 /** Giới hạn độ phân giải trong khoảng hợp lệ (1–4) như server. */
 function clampScale(scale: number | undefined): number {
@@ -59,15 +59,12 @@ export async function exportServer(
     deviceScaleFactor: clampScale(opts.deviceScaleFactor ?? layout.dpiScale)
   };
 
-  const res = await fetch(`${API_URL}/api/print`, {
+  // apiFetch gửi kèm cookie phiên (better-auth của server A) và ném ApiError khi bị chặn 401.
+  const res = await apiFetch('/api/print', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req)
   });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`Render server lỗi (${res.status}): ${detail}`);
-  }
 
   const spec = pageSpec(layout.paper, layout.orientation);
   const blob = await res.blob();

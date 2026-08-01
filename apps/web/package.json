@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@printmap/shared": "workspace:*",
+    "@turf/buffer": "^7.3.5",
+    "@turf/helpers": "^7.3.5",
     "html-to-image": "^1.11.11",
     "interactjs": "^1.10.27",
     "jspdf": "^2.5.2",

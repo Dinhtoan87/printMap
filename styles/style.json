@@ -37,7 +37,7 @@
       "minzoom": 0,
       "maxzoom": 20
     },
-    "nghiatrang": {
+    "nghia_trang": {
       "type": "vector",
       "tiles": ["__MARTIN__/nghia_trang/{z}/{x}/{y}"],
       "minzoom": 0,
@@ -46,7 +46,7 @@
     "gj_momoiphathien": {
       "type": "geojson",
       "data": "__API__/api/admin/geojson/mo_liet_sy",
-      "filter": ["all", ["==", ["get", "moi_phat_hien"], "true"]],
+      "filter": ["all", ["==", ["get", "moi_phat_hien"], true]],
       "cluster": true,
       "clusterRadius": 36,
       "clusterMaxZoom": 16
@@ -54,18 +54,20 @@
     "gj_mogiadinh": {
       "type": "geojson",
       "data": "__API__/api/admin/geojson/mo_liet_sy",
-      "filter": ["all", ["==", ["get", "moi_phat_hien"], "false"]],
+      "filter": [
+        "all", 
+        ["==", ["get", "moi_phat_hien"], false]
+      ],
       "cluster": true,
       "clusterRadius": 44,
       "clusterMaxZoom": 16
     },
     "gj_ntls": {
       "type": "geojson",
-      "data": "__API__/api/admin/geojson/nghiatrang",
+      "data": "__API__/api/admin/geojson/nghia_trang",
       "filter": [
         "all",
-        ["==", ["geometry-type"], "Polygon"],
-        ["==", ["get", "nghia_trang_ls"], true]
+        ["==", ["get", "nghia_trang_ls"], true]  
       ],
       "cluster": true,
       "clusterRadius": 36,
@@ -73,10 +75,9 @@
     },
     "gj_ntdp": {
       "type": "geojson",
-      "data": "__API__/api/admin/geojson/nghiatrang",
+      "data": "__API__/api/admin/geojson/nghia_trang",
       "filter": [
         "all",
-        ["==", ["geometry-type"], "Point"],
         ["==", ["get", "nghia_trang_ls"], false]
       ],
       "cluster": true,
@@ -110,9 +111,9 @@
       }
     },
     {
-      "id": "fill-nghiatrang-diaphuong",
+      "id": "fill-nghia_trang-diaphuong",
       "type": "fill",
-      "source": "nghiatrang",
+      "source": "nghia_trang",
       "source-layer": "nghia_trang",
       "filter": [
         "all",
@@ -122,9 +123,9 @@
       "paint": { "fill-color": "#cfd8dc", "fill-opacity": 0.55, "fill-outline-color": "#455a64" }
     },
     {
-      "id": "fill-nghiatrang-lietsi",
+      "id": "fill-nghia_trang-lietsi",
       "type": "fill",
-      "source": "nghiatrang",
+      "source": "nghia_trang",
       "source-layer": "nghia_trang",
       "filter": [
         "all",

@@ -7,6 +7,13 @@ export const REPO_ROOT = (
   process.env.REPO_ROOT ?? fileURLToPath(new URL('../../../', import.meta.url))
 ).replace(/\/$/, '');
 
+/** Tách chuỗi env dạng "a, b ,c" -> ['a','b','c'] (bỏ phần tử rỗng). */
+const list = (v: string | undefined): string[] =>
+  (v ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   publicApiUrl: process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
@@ -27,6 +34,25 @@ export const config = {
   martinUrl: process.env.MARTIN_URL ?? 'http://localhost:3001',
   /** PostGIS chứa các lớp chuyên đề (diaphanhanhchinhcapxa, mols, ...). Bỏ trống -> dùng dữ liệu mẫu. */
   databaseUrl: process.env.DATABASE_URL ?? '',
+  /**
+   * Xác thực: server in (B) KHÔNG tự đăng nhập, chỉ VERIFY phiên do server A (better-auth)
+   * tạo ra — dùng chung DATABASE_URL (bảng `session`/`user`) và chung BETTER_AUTH_SECRET.
+   */
+  auth: {
+    /** BẮT BUỘC giống hệt BETTER_AUTH_SECRET của server A, nếu không sẽ luôn 401. */
+    secret: process.env.BETTER_AUTH_SECRET ?? '',
+    /** URL better-auth của server A (dùng làm baseURL + gợi ý trang đăng nhập). */
+    baseUrl: process.env.BETTER_AUTH_URL ?? '',
+    /** AUTH_REQUIRED=false -> tắt kiểm tra (chỉ dùng khi dev cục bộ, không dùng khi chạy thật). */
+    required: (process.env.AUTH_REQUIRED ?? 'true').toLowerCase() !== 'false',
+    /** Origin được better-auth tin cậy (mặc định suy ra từ WEB_URL/PUBLIC_API_URL). */
+    trustedOrigins: list(process.env.AUTH_TRUSTED_ORIGINS)
+  },
+  /**
+   * Origin được phép gọi API kèm cookie. Bỏ trống -> phản chiếu mọi origin (tiện dev).
+   * Khi chạy thật NÊN liệt kê rõ: CORS_ORIGINS=http://print.samcom.net:5173,...
+   */
+  corsOrigins: list(process.env.CORS_ORIGINS),
   repoRoot: REPO_ROOT
 };
 
