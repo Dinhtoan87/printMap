@@ -1,0 +1,31 @@
+# deps
+node_modules/
+.pnp
+.pnp.js
+bun.lockb
+
+# build output
+.svelte-kit/
+build/
+dist/
+.output/
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# data (large / source). The small demo tileset (sample.pmtiles) IS committed
+# so the app runs out-of-the-box; real .gdb-derived tiles are ignored.
+data/raw/
+data/geojson/
+data/tiles/*.pmtiles
+data/tiles/*.mbtiles
+!data/tiles/sample.pmtiles
+
+
+# playwright / misc
+test-results/
+*.log
+.DS_Store

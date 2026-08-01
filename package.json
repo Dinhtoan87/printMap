@@ -1,0 +1,31 @@
+{
+  "name": "printmap",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter '*' dev",
+    "dev:api": "bun run --cwd apps/api dev",
+    "dev:web": "bun run --cwd apps/web dev",
+    "build": "bun run --cwd packages/shared build && bun run --cwd apps/web build",
+    "data:sample": "bun scripts/gen-sample.mjs",
+    "data:fonts": "bash scripts/build-fonts.sh",
+    "data:glyphs": "bun scripts/build-glyphs.mjs",
+    "data:sprite": "bun scripts/build-sprite.mjs",
+    "data:inspect": "bash scripts/gdb-inspect.sh",
+    "data:gdb": "bash scripts/gdb-to-geojson.sh",
+    "data:tiles": "bash scripts/geojson-to-pmtiles.sh"
+  },
+  "devDependencies": {
+    "fontnik": "^0.7.7",
+    "typescript": "^5.6.3"
+  },
+  "trustedDependencies": ["fontnik"],
+  "dependencies": {
+    "better-auth": "^1.6.25"
+  }
+}

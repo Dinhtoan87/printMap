@@ -1,0 +1,10 @@
+# Shell script phải giữ LF, nếu không bash trên Windows (Git Bash) sẽ lỗi
+# kiểu ": invalid option name set: pipefail" do ký tự \r cuối dòng.
+*.sh text eol=lf
+*.mjs text eol=lf
+
+# File nhị phân
+*.pbf binary
+*.png binary
+*.pmtiles binary
+*.mbtiles binary

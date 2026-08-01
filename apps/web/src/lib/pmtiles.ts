@@ -1,0 +1,12 @@
+import maplibregl from 'maplibre-gl';
+import { Protocol } from 'pmtiles';
+
+let registered = false;
+
+/** Đăng ký protocol pmtiles:// cho MapLibre (gọi một lần trước khi tạo map). */
+export function ensurePmtilesProtocol() {
+  if (registered) return;
+  const protocol = new Protocol();
+  maplibregl.addProtocol('pmtiles', protocol.tile);
+  registered = true;
+}
