@@ -41,6 +41,16 @@ export const config = {
   auth: {
     /** BẮT BUỘC giống hệt BETTER_AUTH_SECRET của server A, nếu không sẽ luôn 401. */
     secret: process.env.BETTER_AUTH_SECRET ?? '',
+    /**
+     * CSDL chứa bảng `session`/`user` của server A — THƯỜNG KHÁC CSDL bản đồ.
+     * Bỏ trống -> dùng lại DATABASE_URL.
+     */
+    databaseUrl: process.env.AUTH_DATABASE_URL ?? process.env.DATABASE_URL ?? '',
+    /**
+     * Kiểu đặt tên cột của CSDL xác thực: 'snake' = expires_at/user_id (server A đang dùng),
+     * 'camel' = expiresAt/userId (mặc định gốc của better-auth).
+     */
+    dbNaming: (process.env.AUTH_DB_NAMING ?? 'snake').toLowerCase() === 'camel' ? 'camel' : 'snake',
     /** URL better-auth của server A (dùng làm baseURL + gợi ý trang đăng nhập). */
     baseUrl: process.env.BETTER_AUTH_URL ?? '',
     /** AUTH_REQUIRED=false -> tắt kiểm tra (chỉ dùng khi dev cục bộ, không dùng khi chạy thật). */

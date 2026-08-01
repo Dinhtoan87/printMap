@@ -71,12 +71,14 @@ export async function fetchSession(): Promise<SessionInfo> {
 }
 
 /**
- * transformRequest của MapLibre: chỉ gửi cookie tới API của hệ thống, không gửi ra tile ngoài.
- * Cần thiết vì style trỏ tới /api/admin/geojson/* — các nguồn này đã yêu cầu đăng nhập.
+ * transformRequest của MapLibre: chỉ gửi cookie cho các endpoint /api/* đã bảo vệ.
+ *
+ * KHÔNG gửi cho tile/sprite/glyphs — những response đó trả `Access-Control-Allow-Origin: *`,
+ * mà trình duyệt CẤM dùng '*' khi request có credentials (sẽ bị chặn CORS, mất ký hiệu/nền).
  */
 export function withCredentialsForApi(url: string): {
   url: string;
   credentials?: 'same-origin' | 'include';
 } {
-  return url.startsWith(API_URL) ? { url, credentials: 'include' } : { url };
+  return url.startsWith(`${API_URL}/api/`) ? { url, credentials: 'include' } : { url };
 }

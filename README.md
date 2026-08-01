@@ -132,11 +132,20 @@ better-auth); server in chỉ **verify** phiên đó rồi mới cho đọc dữ
 
 | Biến | Ý nghĩa |
 |---|---|
-| `DATABASE_URL` | Trỏ ĐÚNG CSDL server A dùng (phải có bảng `session`, `user`) |
+| `AUTH_DATABASE_URL` | CSDL có bảng `session`/`user` của server A — **thường KHÁC** `DATABASE_URL` (CSDL bản đồ). Bỏ trống thì dùng lại `DATABASE_URL` |
+| `AUTH_DB_NAMING` | `snake` (mặc định, `expires_at`/`user_id`) hoặc `camel` (`expiresAt`/`userId`) — khai sai thì mọi truy vấn phiên lỗi → 503 |
 | `BETTER_AUTH_SECRET` | **Giống hệt** server A — sai một ký tự là mọi request 401 |
 | `BETTER_AUTH_URL` | URL better-auth của server A (dùng làm baseURL + link đăng nhập trong lỗi 401) |
 | `CORS_ORIGINS` | Origin được gọi API kèm cookie, ví dụ `http://print.samcom.net:5173` |
 | `AUTH_REQUIRED` | `false` để tắt kiểm tra khi dev cục bộ (mặc định `true`) |
+
+Không chắc server A ghi phiên vào CSDL nào? Đăng nhập rồi tìm token vừa nhận:
+
+```bash
+curl -X POST http://auth.samcom.net:3000/api/auth/sign-in/email \
+  -H 'Content-Type: application/json' -d '{"email":"...","password":"..."}'
+# -> lấy "token" trong kết quả, rồi: select 1 from session where token='<token>'
+```
 
 Cách phiên đi tới server in:
 

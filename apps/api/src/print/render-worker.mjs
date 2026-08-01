@@ -105,7 +105,9 @@ try {
   // nên mạng không bao giờ "idle" và goto hết giờ. Cờ __PRINT_READY__ mới là tín hiệu đúng.
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   // Trang /print đặt cờ khi bản đồ render xong (map 'idle' + các tác vụ nạp xã).
-  await page.waitForFunction('window.__PRINT_READY__ === true', { timeout: 60_000 });
+  // Tham số thứ 2 của waitForFunction là ARG của hàm, options phải nằm ở tham số thứ 3 —
+  // đặt sai chỗ thì timeout luôn về mặc định 30s thay vì 60s.
+  await page.waitForFunction('window.__PRINT_READY__ === true', undefined, { timeout: 60_000 });
 
   if (format === 'png') {
     const el = page.locator('#a0-print-zone');
