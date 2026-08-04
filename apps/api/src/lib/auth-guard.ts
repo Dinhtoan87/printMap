@@ -26,24 +26,24 @@ export type SessionCheck =
   | { ok: false; reason: 'unauthenticated' | 'unavailable'; detail?: string };
 
 /** Đọc phiên từ header của request (cookie better-auth hoặc `Authorization: Bearer <token>`). */
-export async function checkSession(headers: Headers): Promise<SessionCheck> {
-  if (!auth) {
-    return { ok: false, reason: 'unavailable', detail: 'auth chưa được cấu hình (DATABASE_URL/BETTER_AUTH_SECRET)' };
-  }
-  try {
-    const result = await auth.api.getSession({ headers });
-    if (!result?.session) return { ok: false, reason: 'unauthenticated' };
-    return {
-      ok: true,
-      user: result.user as unknown as SessionUser,
-      session: result.session as unknown as Record<string, unknown>
-    };
-  } catch (err) {
-    // Lỗi ở đây gần như luôn là do CSDL/secret, không phải "người dùng chưa đăng nhập".
-    console.error('[auth] không kiểm tra được phiên:', String(err));
-    return { ok: false, reason: 'unavailable', detail: String(err) };
-  }
-}
+// export async function checkSession(headers: Headers): Promise<SessionCheck> {
+//   if (!auth) {
+//     return { ok: false, reason: 'unavailable', detail: 'auth chưa được cấu hình (DATABASE_URL/BETTER_AUTH_SECRET)' };
+//   }
+//   try {
+//     const result = await auth.api.getSession({ headers });
+//     if (!result?.session) return { ok: false, reason: 'unauthenticated' };
+//     return {
+//       ok: true,
+//       user: result.user as unknown as SessionUser,
+//       session: result.session as unknown as Record<string, unknown>
+//     };
+//   } catch (err) {
+//     // Lỗi ở đây gần như luôn là do CSDL/secret, không phải "người dùng chưa đăng nhập".
+//     console.error('[auth] không kiểm tra được phiên:', String(err));
+//     return { ok: false, reason: 'unavailable', detail: String(err) };
+//   }
+// }
 
 /** Cookie/bearer cần chuyển tiếp sang trình duyệt headless khi render bản in. */
 export function forwardAuthHeaders(headers: Headers): { cookie: string; authorization: string } {
@@ -51,6 +51,57 @@ export function forwardAuthHeaders(headers: Headers): { cookie: string; authoriz
     cookie: headers.get('cookie') ?? '',
     authorization: headers.get('authorization') ?? ''
   };
+}
+//checkSession trực tiếp từ server A (better-auth) thay vì dùng auth.api.getSession() để tránh lỗi CSDL/secret.
+// Lấy URL từ biến môi trường
+const AUTH_SERVER_URL = process.env.BETTER_AUTH_URL;
+
+export async function checkSession(headers: Headers): Promise<SessionCheck> {
+  if (!AUTH_SERVER_URL) {
+    return { 
+      ok: false, 
+      reason: 'unavailable', 
+      detail: 'Chưa cấu hình biến môi trường BETTER_AUTH_URL' 
+    };
+  }
+
+  try {
+    // Gọi đến endpoint get-session của Elysia Better Auth
+    const response = await fetch(`${AUTH_SERVER_URL}/api/auth/get-session`, {
+      method: 'GET',
+      headers: {
+        // Forward toàn bộ Cookie từ Client lên Server A
+        cookie: headers.get('cookie') || '',
+        // Forward Authorization Header nếu Client dùng Bearer token
+        authorization: headers.get('authorization') || '',
+      },
+    });
+
+    if (!response.ok) {
+      return { ok: false, reason: 'unauthenticated' };
+    }
+
+    const result = await response.json();
+
+    // Better Auth trả về object chứa { session, user } khi hợp lệ
+    if (!result?.session) {
+      return { ok: false, reason: 'unauthenticated' };
+    }
+
+    return {
+      ok: true,
+      user: result.user as unknown as SessionUser,
+      session: result.session as unknown as Record<string, unknown>
+    };
+
+  } catch (err) {
+    console.error('[auth] Không thể kết nối tới Auth Server A:', String(err));
+    return { 
+      ok: false, 
+      reason: 'unavailable', 
+      detail: `Lỗi kết nối Auth Server: ${String(err)}` 
+    };
+  }
 }
 
 /**

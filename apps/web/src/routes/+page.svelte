@@ -331,7 +331,7 @@
         <div class="warn">
           {authMsg}
           {#if loginUrl}
-            <a href={loginUrl} target="_blank" rel="noreferrer">Đăng nhập</a>
+            <a href={loginUrl} target="samcom_auth">Đăng nhập</a>
           {/if}
           <button class="link" onclick={loadProvinces}>Thử lại</button>
         </div>

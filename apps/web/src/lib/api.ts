@@ -80,5 +80,19 @@ export function withCredentialsForApi(url: string): {
   url: string;
   credentials?: 'same-origin' | 'include';
 } {
-  return url.startsWith(`${API_URL}/api/`) ? { url, credentials: 'include' } : { url };
+  // return url.startsWith(`${API_URL}/api/`) ? { url, credentials: 'include' } : { url };
+  // 2. Kiểm tra nếu URL bắt đầu bằng API_URL hiện tại HOẶC AUTH_SERVER_URL
+  const isTargetApi = 
+    url.includes('/api/') || 
+    url.includes('auth.samcom.net') || 
+    url.includes(':3000');
+
+  if (isTargetApi) {
+    return {
+      url: url,
+      credentials: 'include' // 👈 Bắt buộc trình duyệt phải gửi Cookie đi
+    };
+  }
+
+  return { url };
 }

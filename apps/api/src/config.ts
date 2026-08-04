@@ -52,7 +52,7 @@ export const config = {
      */
     dbNaming: (process.env.AUTH_DB_NAMING ?? 'snake').toLowerCase() === 'camel' ? 'camel' : 'snake',
     /** URL better-auth của server A (dùng làm baseURL + gợi ý trang đăng nhập). */
-    baseUrl: process.env.BETTER_AUTH_URL ?? '',
+    baseUrl: process.env.PUBLIC_LOGIN_URL ?? '',
     /** AUTH_REQUIRED=false -> tắt kiểm tra (chỉ dùng khi dev cục bộ, không dùng khi chạy thật). */
     required: (process.env.AUTH_REQUIRED ?? 'true').toLowerCase() !== 'false',
     /** Origin được better-auth tin cậy (mặc định suy ra từ WEB_URL/PUBLIC_API_URL). */

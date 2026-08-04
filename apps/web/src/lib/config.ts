@@ -8,3 +8,4 @@ export const LOGIN_URL = env.PUBLIC_LOGIN_URL ?? '';
 
 /** URL style trên API (đã chèn __API__). */
 export const STYLE_URL = `${API_URL}/styles/${STYLE_NAME}`;
+// export const STYLE_URL_MARTIN = env.PUBLIC_AUTH_SERVER_URL ?? '';
